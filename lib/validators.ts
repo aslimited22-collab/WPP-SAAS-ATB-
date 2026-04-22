@@ -64,6 +64,27 @@ export const profileSchema = z.object({
 
 export type ProfileInput = z.infer<typeof profileSchema>;
 
+// ─── Guia de Vícios ───────────────────────────────────────────────────────────
+export const CATEGORIAS_GUIA = [
+  "Alimentação Emocional",
+  "Relacionamentos Tóxicos",
+  "Procrastinação",
+  "Vício em Redes Sociais",
+  "Ansiedade Crônica",
+  "Cigarro",
+  "Álcool",
+] as const;
+
+export type CategoriaGuia = (typeof CATEGORIAS_GUIA)[number];
+
+export const guiaViciosSchema = z.object({
+  categoria: z.enum(CATEGORIAS_GUIA, {
+    errorMap: () => ({ message: "Categoria inválida." }),
+  }),
+});
+
+export type GuiaViciosInput = z.infer<typeof guiaViciosSchema>;
+
 // ─── Solicitação de leitura ───────────────────────────────────────────────────
 export const readingRequestSchema = z.object({
   pergunta: z

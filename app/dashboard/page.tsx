@@ -5,7 +5,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase";
-import { profileSchema, type ProfileInput, SIGNOS } from "@/lib/validators";
+import {
+  profileSchema,
+  type ProfileInput,
+  SIGNOS,
+  CATEGORIAS_GUIA,
+  type CategoriaGuia,
+} from "@/lib/validators";
 
 interface UserProfile {
   id: string;
@@ -28,7 +34,7 @@ interface Credits {
   mes_referencia: string | null;
 }
 
-type TabType = "leitura" | "perfil" | "historico";
+type TabType = "leitura" | "guia" | "perfil" | "historico";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -45,6 +51,10 @@ export default function DashboardPage() {
   const [profileApiError, setProfileApiError] = useState<string | null>(null);
   const [expandedReading, setExpandedReading] = useState<string | null>(null);
   const [pergunta, setPergunta] = useState("");
+  const [guiaLoading, setGuiaLoading] = useState(false);
+  const [guiaResult, setGuiaResult] = useState<string | null>(null);
+  const [guiaError, setGuiaError] = useState<string | null>(null);
+  const [guiaCategoria, setGuiaCategoria] = useState<CategoriaGuia | null>(null);
 
   const {
     register,
@@ -170,6 +180,45 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleGuiaVicios(categoria: CategoriaGuia) {
+    setGuiaLoading(true);
+    setGuiaResult(null);
+    setGuiaError(null);
+    setGuiaCategoria(categoria);
+
+    try {
+      const res = await fetch("/api/guia-vicios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoria }),
+      });
+
+      const data = (await res.json()) as {
+        success?: boolean;
+        reading?: string;
+        leituras_restantes?: number;
+        error?: string;
+      };
+
+      if (!res.ok || !data.success) {
+        setGuiaError(data.error ?? "Erro ao solicitar leitura. Tente novamente.");
+        return;
+      }
+
+      setGuiaResult(data.reading ?? null);
+      setCredits((prev) => ({
+        ...prev,
+        leituras_restantes: data.leituras_restantes ?? prev.leituras_restantes - 1,
+      }));
+
+      setTimeout(() => fetchData(), 1500);
+    } catch {
+      setGuiaError("Erro de conexão. Verifique sua internet e tente novamente.");
+    } finally {
+      setGuiaLoading(false);
+    }
+  }
+
   async function handleLogout() {
     const supabase = createBrowserSupabaseClient();
     await supabase.auth.signOut();
@@ -267,6 +316,7 @@ export default function DashboardPage() {
           {(
             [
               { id: "leitura", label: "✦ Solicitar Leitura" },
+              { id: "guia", label: "🌿 Guia de Vícios" },
               { id: "historico", label: "Histórico" },
               { id: "perfil", label: "Meu Perfil" },
             ] as { id: TabType; label: string }[]
@@ -403,6 +453,102 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ── TAB: GUIA DE VÍCIOS ────────────────────────────────────────── */}
+        {activeTab === "guia" && (
+          <div className="animate-fade-in">
+            <div className="mb-6">
+              <h2 className="font-serif text-xl text-[#c9a84c] mb-2">
+                Guia de Vícios
+              </h2>
+              <p className="text-[#666] text-sm">
+                Escolha uma categoria e ATB revelará as cartas para iluminar seu
+                caminho de cura e transformação.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+              {CATEGORIAS_GUIA.map((categoria) => {
+                const icones: Record<CategoriaGuia, string> = {
+                  "Alimentação Emocional": "🍫",
+                  "Relacionamentos Tóxicos": "💔",
+                  Procrastinação: "⏳",
+                  "Vício em Redes Sociais": "📱",
+                  "Ansiedade Crônica": "🌪️",
+                  Cigarro: "🚬",
+                  Álcool: "🍷",
+                };
+                return (
+                  <button
+                    key={categoria}
+                    onClick={() => handleGuiaVicios(categoria)}
+                    disabled={
+                      guiaLoading ||
+                      credits.leituras_restantes === 0 ||
+                      !profileComplete
+                    }
+                    className={`mystic-card p-6 text-left transition-all hover:border-[#c9a84c]/50 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      guiaCategoria === categoria && guiaLoading
+                        ? "border-[#c9a84c]/50"
+                        : ""
+                    }`}
+                  >
+                    <div className="text-3xl mb-3">{icones[categoria]}</div>
+                    <div className="font-serif text-[#c9a84c] text-base mb-1">
+                      {categoria}
+                    </div>
+                    {guiaCategoria === categoria && guiaLoading && (
+                      <p className="text-[#555] text-xs">
+                        ATB está consultando as cartas...
+                      </p>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {guiaError && (
+              <div className="bg-red-900/20 border border-red-800/40 rounded-lg p-4 mb-6">
+                <p className="text-red-400 text-sm">{guiaError}</p>
+              </div>
+            )}
+
+            {guiaResult && guiaCategoria && (
+              <div className="animate-fade-in">
+                <div className="bg-[#1a0a2e]/50 border border-[#c9a84c]/30 rounded-lg p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="text-[#c9a84c]">✦</span>
+                    <h3 className="text-[#c9a84c] font-serif text-lg">
+                      {guiaCategoria}
+                    </h3>
+                    <span className="text-[#555] text-xs ml-auto">
+                      Enviada ao WhatsApp
+                    </span>
+                  </div>
+                  <p className="text-[#e8e0d0]/90 text-sm leading-relaxed whitespace-pre-wrap font-serif italic">
+                    {guiaResult}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {credits.leituras_restantes === 0 && (
+              <div className="bg-[#8b0000]/20 border border-[#8b0000]/40 rounded-lg p-4 text-center">
+                <p className="text-red-400 text-sm">
+                  Você utilizou todas as suas leituras deste mês.
+                </p>
+              </div>
+            )}
+
+            {!profileComplete && (
+              <div className="bg-[#8b0000]/20 border border-[#8b0000]/40 rounded-lg p-4 text-center">
+                <p className="text-red-400 text-sm">
+                  Complete seu perfil antes de solicitar uma leitura.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
