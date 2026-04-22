@@ -71,6 +71,8 @@ export const CATEGORIAS_GUIA = [
   "Procrastinação",
   "Vício em Redes Sociais",
   "Ansiedade Crônica",
+  "Cigarro",
+  "Álcool",
 ] as const;
 
 export type CategoriaGuia = (typeof CATEGORIAS_GUIA)[number];

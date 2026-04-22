@@ -24,6 +24,10 @@ const CATEGORIA_CONTEXTO: Record<CategoriaGuia, string> = {
     "Faça minha leitura de tarot com foco no vício em redes sociais e como recuperar minha atenção e presença.",
   "Ansiedade Crônica":
     "Faça minha leitura de tarot com foco em ansiedade crônica e como encontrar paz interior e equilíbrio.",
+  Cigarro:
+    "Faça minha leitura de tarot com foco no vício em cigarro e como encontrar força interior para me libertar deste hábito.",
+  Álcool:
+    "Faça minha leitura de tarot com foco no vício em álcool e como recuperar meu equilíbrio, clareza e saúde.",
 };
 
 export async function POST(request: NextRequest) {

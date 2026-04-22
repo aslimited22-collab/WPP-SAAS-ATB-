@@ -477,6 +477,8 @@ export default function DashboardPage() {
                   Procrastinação: "⏳",
                   "Vício em Redes Sociais": "📱",
                   "Ansiedade Crônica": "🌪️",
+                  Cigarro: "🚬",
+                  Álcool: "🍷",
                 };
                 return (
                   <button
