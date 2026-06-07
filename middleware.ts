@@ -101,14 +101,16 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  // getUser() revalida o token junto ao servidor de auth (recomendado pelo
+  // Supabase), ao contrário de getSession() que apenas lê o cookie local.
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const isApiRoute = pathname.startsWith("/api/");
 
   // ── Sem sessão → redirect seguro ou 401 ──────────────────────────────────
-  if (!session) {
+  if (!user) {
     if (isApiRoute) {
       return NextResponse.json(
         { error: "Não autorizado. Faça login para continuar." },
@@ -134,7 +136,7 @@ export async function middleware(request: NextRequest) {
     const { data: subscription } = await supabase
       .from("subscriptions")
       .select("status")
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1)
       .single();

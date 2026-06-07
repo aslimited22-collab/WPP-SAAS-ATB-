@@ -94,9 +94,6 @@ async function logAudit(
   });
 }
 
-// Desabilitar o body parser padrão do Next.js para ler o raw body manualmente
-export const config = { api: { bodyParser: false } };
-
 export async function POST(request: NextRequest) {
   const ipAddress =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
@@ -200,75 +197,115 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      let userId: string;
-      const { data: authUser } =
-        await supabase.auth.admin.getUserByEmail(email);
-
-      if (authUser?.user) {
-        userId = authUser.user.id;
-      } else {
-        const { data: newUser, error: createError } =
+      try {
+        // ── Resolver o usuário no Supabase Auth ───────────────────────────
+        // O SDK não expõe getUserByEmail. Tentamos criar o usuário primeiro;
+        // se o e-mail já existir, localizamos via listUsers (paginado).
+        let userId: string;
+        const { data: created, error: createError } =
           await supabase.auth.admin.createUser({
             email,
             email_confirm: true,
           });
-        if (createError || !newUser.user) {
-          // Log interno sem detalhes do erro para não expor stack traces
-          console.error("[Kiwify] Falha ao criar usuário no Supabase Auth");
-          return NextResponse.json(
-            { error: "Erro interno ao processar compra" },
-            { status: 500 }
-          );
+
+        if (created?.user) {
+          userId = created.user.id;
+        } else {
+          // createUser falhou — provavelmente o e-mail já está registrado.
+          // Procurar o usuário existente percorrendo as páginas.
+          let found:
+            | Awaited<
+                ReturnType<typeof supabase.auth.admin.listUsers>
+              >["data"]["users"][number]
+            | undefined;
+          let page = 1;
+          const perPage = 200;
+          // Limite de segurança para não iterar indefinidamente
+          const MAX_PAGES = 50;
+          while (page <= MAX_PAGES) {
+            const { data: list, error: listError } =
+              await supabase.auth.admin.listUsers({ page, perPage });
+            if (listError) break;
+            found = list.users.find(
+              (u) => u.email?.toLowerCase() === email.toLowerCase()
+            );
+            if (found || list.users.length < perPage) break;
+            page++;
+          }
+
+          if (!found) {
+            // Não foi possível criar nem localizar o usuário
+            console.error(
+              "[Kiwify] Falha ao resolver usuário no Supabase Auth",
+              createError?.message ?? ""
+            );
+            return NextResponse.json(
+              { error: "Erro interno ao processar compra" },
+              { status: 500 }
+            );
+          }
+          userId = found.id;
         }
-        userId = newUser.user.id;
+
+        await supabase.from("users").upsert(
+          { id: userId, email, nome: nome.slice(0, 100) },
+          { onConflict: "id" }
+        );
+
+        // Validar data de renovação antes de usar (vem do payload externo)
+        const rawRenovacao = subscription?.current_period_end;
+        const renovacaoDate = rawRenovacao ? new Date(rawRenovacao) : null;
+        const renovacaoEm =
+          renovacaoDate && !isNaN(renovacaoDate.getTime())
+            ? renovacaoDate.toISOString()
+            : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+        await supabase.from("subscriptions").upsert(
+          {
+            user_id: userId,
+            status: "active",
+            kiwify_subscriber_id: subscriberId,
+            kiwify_transaction_id: transactionId,
+            renovacao_em: renovacaoEm,
+          },
+          { onConflict: "kiwify_transaction_id" }
+        );
+
+        const mesReferencia = new Date().toISOString().slice(0, 7);
+        await supabase.from("credits").upsert(
+          {
+            user_id: userId,
+            leituras_restantes: CREDITS_PER_MONTH,
+            mes_referencia: mesReferencia,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" }
+        );
+
+        await logAudit(supabase, {
+          userId,
+          action: "KIWIFY_ORDER_APPROVED",
+          ipAddress,
+          // Não logar email completo — apenas domínio para diagnóstico
+          metadata: {
+            order_id: transactionId,
+            subscriberId,
+            emailDomain: email.split("@")[1] ?? "unknown",
+          },
+        });
+      } catch (err) {
+        // Nenhum erro inesperado deve derrubar o webhook inteiro.
+        // Retornar 500 sinaliza à Kiwify para reenviar (a idempotência
+        // garante que um reprocessamento não duplica dados).
+        console.error(
+          "[Kiwify] Erro inesperado ao processar order_approved",
+          err instanceof Error ? err.message : ""
+        );
+        return NextResponse.json(
+          { error: "Erro interno ao processar compra" },
+          { status: 500 }
+        );
       }
-
-      await supabase.from("users").upsert(
-        { id: userId, email, nome: nome.slice(0, 100) },
-        { onConflict: "id" }
-      );
-
-      // Validar data de renovação antes de usar (vem do payload externo)
-      const rawRenovacao = subscription?.current_period_end;
-      const renovacaoDate = rawRenovacao ? new Date(rawRenovacao) : null;
-      const renovacaoEm =
-        renovacaoDate && !isNaN(renovacaoDate.getTime())
-          ? renovacaoDate.toISOString()
-          : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-
-      await supabase.from("subscriptions").upsert(
-        {
-          user_id: userId,
-          status: "active",
-          kiwify_subscriber_id: subscriberId,
-          kiwify_transaction_id: transactionId,
-          renovacao_em: renovacaoEm,
-        },
-        { onConflict: "kiwify_transaction_id" }
-      );
-
-      const mesReferencia = new Date().toISOString().slice(0, 7);
-      await supabase.from("credits").upsert(
-        {
-          user_id: userId,
-          leituras_restantes: CREDITS_PER_MONTH,
-          mes_referencia: mesReferencia,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" }
-      );
-
-      await logAudit(supabase, {
-        userId,
-        action: "KIWIFY_ORDER_APPROVED",
-        ipAddress,
-        // Não logar email completo — apenas domínio para diagnóstico
-        metadata: {
-          order_id: transactionId,
-          subscriberId,
-          emailDomain: email.split("@")[1] ?? "unknown",
-        },
-      });
       break;
     }
 
