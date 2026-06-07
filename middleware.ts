@@ -7,6 +7,7 @@ const PUBLIC_ROUTES = [
   "/login",
   "/obrigado",
   "/api/webhooks/kiwify",
+  "/api/webhooks/stripe",
   "/api/auth",
 ];
 

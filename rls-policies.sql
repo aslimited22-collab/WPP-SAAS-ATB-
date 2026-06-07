@@ -26,6 +26,9 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
   status TEXT NOT NULL DEFAULT 'inactive' CHECK (status IN ('active','inactive','cancelled')),
   kiwify_subscriber_id TEXT,
   kiwify_transaction_id TEXT UNIQUE,
+  -- Identificadores Stripe (coexistem com Kiwify; ver stripe-migration.sql)
+  stripe_customer_id TEXT,
+  stripe_subscription_id TEXT UNIQUE,
   renovacao_em TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -235,6 +238,10 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_transaction
   ON public.subscriptions(kiwify_transaction_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_subscriber
   ON public.subscriptions(kiwify_subscriber_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_subscription
+  ON public.subscriptions(stripe_subscription_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_customer
+  ON public.subscriptions(stripe_customer_id);
 CREATE INDEX IF NOT EXISTS idx_credits_user_id
   ON public.credits(user_id);
 CREATE INDEX IF NOT EXISTS idx_readings_user_id
@@ -249,6 +256,10 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action
   ON public.audit_logs(action)
   WHERE action LIKE 'KIWIFY_%';
+-- Índice parcial para busca de idempotência no webhook Stripe
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action_stripe
+  ON public.audit_logs(action)
+  WHERE action LIKE 'STRIPE_%';
 
 -- ------------------------------------------------------------
 -- GRANT: service_role acessa tudo (default no Supabase, explícito para clareza)
