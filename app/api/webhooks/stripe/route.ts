@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createServiceSupabaseClient } from "@/lib/supabase";
 import { checkWebhookRateLimit } from "@/lib/ratelimit";
+import {
+  provisionPlan,
+  resolvePlanFromEnv,
+  resolvePlanFromAmount,
+  type PlanKey,
+} from "@/lib/plans";
 
 // Stripe usa a API "dahlia" (pinada pelo SDK). O webhook precisa do corpo
 // bruto da requisição para validar a assinatura, por isso roda no runtime
@@ -11,7 +17,6 @@ export const dynamic = "force-dynamic";
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY ?? "";
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? "";
-const CREDITS_PER_MONTH = 5;
 
 // Limite de tamanho do corpo: payloads do Stripe podem ser maiores que os da
 // Kiwify (eventos com objetos expandidos), então usamos 256 KB de folga.
@@ -243,8 +248,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "Evento já processado" }, { status: 200 });
   }
 
-  const mesReferencia = new Date().toISOString().slice(0, 7);
-
   // ── 6. Processar evento ───────────────────────────────────────────────────
   switch (event.type) {
     case "checkout.session.completed": {
@@ -315,15 +318,30 @@ export async function POST(request: NextRequest) {
           { onConflict: "stripe_subscription_id" }
         );
 
-        await supabase.from("credits").upsert(
-          {
-            user_id: userId,
-            leituras_restantes: CREDITS_PER_MONTH,
-            mes_referencia: mesReferencia,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id" }
-        );
+        // ── Resolver o plano comprado e provisionar créditos ──────────────
+        // Prioridade: price id configurado via env → valor total (centavos).
+        // Buscamos a primeira linha do checkout para obter o price id; se
+        // falhar, usamos session.amount_total. Fallback "basic".
+        let priceId: string | null = null;
+        try {
+          const lineItems = await stripe.checkout.sessions.listLineItems(
+            session.id,
+            { limit: 1 }
+          );
+          priceId = lineItems.data[0]?.price?.id ?? null;
+        } catch (e) {
+          console.warn(
+            "[Stripe] Falha ao listar line items do checkout",
+            e instanceof Error ? e.message : ""
+          );
+        }
+
+        const planKey: PlanKey =
+          resolvePlanFromEnv(priceId, "STRIPE_PRICE") ??
+          resolvePlanFromAmount(session.amount_total) ??
+          "basic";
+
+        await provisionPlan(supabase, userId, planKey);
 
         await logAudit(supabase, {
           userId,
@@ -334,6 +352,7 @@ export async function POST(request: NextRequest) {
             session_id: session.id,
             stripe_customer_id: stripeCustomerId,
             stripe_subscription_id: stripeSubscriptionId,
+            plan: planKey,
             emailDomain: email.split("@")[1] ?? "unknown",
           },
         });
@@ -393,14 +412,19 @@ export async function POST(request: NextRequest) {
           .update({ status: "active", renovacao_em: renovacaoEm })
           .eq("user_id", userId);
 
-        await supabase
-          .from("credits")
-          .update({
-            leituras_restantes: CREDITS_PER_MONTH,
-            mes_referencia: mesReferencia,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("user_id", userId);
+        // Renovação: reprovisionar créditos conforme o plano pago.
+        // O valor pago (amount_paid, em centavos) identifica o plano; se não
+        // mapear, usamos o plano atual do usuário; por fim, "basic".
+        const { data: invoiceUserRow } = await supabase
+          .from("users")
+          .select("plan")
+          .eq("id", userId)
+          .maybeSingle();
+        const renewalPlan: PlanKey =
+          resolvePlanFromAmount(invoice.amount_paid) ??
+          (invoiceUserRow?.plan === "premium" ? "premium" : "basic");
+
+        await provisionPlan(supabase, userId, renewalPlan);
 
         await logAudit(supabase, {
           userId,

@@ -3,9 +3,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceSupabaseClient } from "@/lib/supabase";
 import { checkWebhookRateLimit } from "@/lib/ratelimit";
 import { kiwifyWebhookSchema } from "@/lib/validators";
+import {
+  provisionPlan,
+  resolvePlanFromEnv,
+  resolvePlanFromAmount,
+  toCents,
+  type PlanKey,
+} from "@/lib/plans";
 
 const KIWIFY_WEBHOOK_TOKEN = process.env.KIWIFY_WEBHOOK_TOKEN ?? "";
-const CREDITS_PER_MONTH = 5;
 
 // Limite de tamanho do corpo: 64 KB (payloads legítimos da Kiwify são <5 KB)
 const MAX_BODY_BYTES = 64 * 1024;
@@ -158,6 +164,8 @@ export async function POST(request: NextRequest) {
     Signature,
     customer,
     subscription,
+    Product,
+    Commissions,
   } = parsed.data;
 
   // ── 6. Validar assinatura HMAC (timing-safe em ambas as comparações) ──────
@@ -271,16 +279,16 @@ export async function POST(request: NextRequest) {
           { onConflict: "kiwify_transaction_id" }
         );
 
-        const mesReferencia = new Date().toISOString().slice(0, 7);
-        await supabase.from("credits").upsert(
-          {
-            user_id: userId,
-            leituras_restantes: CREDITS_PER_MONTH,
-            mes_referencia: mesReferencia,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id" }
-        );
+        // ── Resolver o plano comprado e provisionar créditos ──────────────
+        // Prioridade: ID de produto configurado via env → valor pago (centavos).
+        // Fallback "basic" preserva o comportamento histórico (5 leituras).
+        const amountCents = toCents(Commissions?.charge_amount);
+        const planKey: PlanKey =
+          resolvePlanFromEnv(Product?.product_id, "KIWIFY_PRODUCT") ??
+          resolvePlanFromAmount(amountCents) ??
+          "basic";
+
+        await provisionPlan(supabase, userId, planKey);
 
         await logAudit(supabase, {
           userId,
@@ -290,6 +298,7 @@ export async function POST(request: NextRequest) {
           metadata: {
             order_id: transactionId,
             subscriberId,
+            plan: planKey,
             emailDomain: email.split("@")[1] ?? "unknown",
           },
         });
@@ -382,15 +391,16 @@ export async function POST(request: NextRequest) {
             .update({ status: "active", renovacao_em: renovacaoEm })
             .eq("user_id", sub.user_id);
 
-          const mesReferencia = new Date().toISOString().slice(0, 7);
-          await supabase
-            .from("credits")
-            .update({
-              leituras_restantes: CREDITS_PER_MONTH,
-              mes_referencia: mesReferencia,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("user_id", sub.user_id);
+          // Reprovisionar créditos conforme o plano atual do usuário
+          // (basic → 5, premium → 999). Default "basic" se ausente.
+          const { data: userRow } = await supabase
+            .from("users")
+            .select("plan")
+            .eq("id", sub.user_id)
+            .maybeSingle();
+          const reactivatedPlan: PlanKey =
+            userRow?.plan === "premium" ? "premium" : "basic";
+          await provisionPlan(supabase, sub.user_id, reactivatedPlan);
 
           await logAudit(supabase, {
             userId: sub.user_id,

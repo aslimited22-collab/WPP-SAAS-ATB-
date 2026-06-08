@@ -148,6 +148,25 @@ export const kiwifyWebhookSchema = z.object({
       // document (CPF) não é usado — ignorado intencionalmente
     })
     .optional(),
+  // Identificação do produto comprado — usada para mapear o plano.
+  // A Kiwify envia o produto em `Product` (product_id / product_name).
+  Product: z
+    .object({
+      product_id: z
+        .string()
+        .max(128)
+        .regex(/^[a-zA-Z0-9_-]*$/)
+        .optional(),
+      product_name: z.string().max(200).optional(),
+    })
+    .optional(),
+  // Valor pago — fallback para mapear o plano quando não há product_id
+  // configurado. `charge_amount` vem em centavos (pode ser número ou string).
+  Commissions: z
+    .object({
+      charge_amount: z.union([z.number(), z.string().max(32)]).optional(),
+    })
+    .optional(),
   subscription: z
     .object({
       id: z
