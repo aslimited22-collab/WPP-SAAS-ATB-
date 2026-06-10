@@ -44,9 +44,13 @@ export async function GET(
     return NextResponse.redirect(`${baseUrl}/#assinar`, 307);
   }
 
-  // Pedido do funil da limpeza (opcional) — validado como UUID.
+  // Pedido do funil da limpeza — SÓ é honrado no produto limpeza, para que
+  // um order UUID forjado em outro produto não sequestre o provisionamento.
   const orderParam = request.nextUrl.searchParams.get("order");
-  const orderId = orderParam && UUID_RE.test(orderParam) ? orderParam : null;
+  const orderId =
+    plan === "limpeza" && orderParam && UUID_RE.test(orderParam)
+      ? orderParam
+      : null;
 
   // ── Brasil → Kiwify ────────────────────────────────────────────────────────
   if (isBrazilRequest(request)) {
@@ -55,10 +59,10 @@ export async function GET(
       console.warn("[Checkout] URL Kiwify ausente para o produto:", plan);
       return NextResponse.redirect(`${baseUrl}/#assinar`, 307);
     }
-    // external_reference permite ao webhook Kiwify casar o pagamento com o
-    // pedido do funil da limpeza.
+    // O id do pedido vai em external_reference E em s1 (TrackingParameters):
+    // a Kiwify ecoa parâmetros de rastreio s1/s2/s3 no payload do webhook.
     const url = orderId
-      ? `${kiwifyUrl}${kiwifyUrl.includes("?") ? "&" : "?"}external_reference=${orderId}`
+      ? `${kiwifyUrl}${kiwifyUrl.includes("?") ? "&" : "?"}external_reference=${orderId}&s1=${orderId}`
       : kiwifyUrl;
     return NextResponse.redirect(url, 307);
   }

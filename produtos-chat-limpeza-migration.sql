@@ -180,7 +180,132 @@ CREATE POLICY "limpeza_readings_deny_all"
   WITH CHECK (false);
 
 -- ------------------------------------------------------------
--- 6. GRANTS
+-- 6. RPCs ATÔMICAS de créditos/cota de chat
+-- Eliminam race conditions (gasto duplo, lost update) — toda
+-- mutação de saldo é um UPDATE condicional único no banco.
+-- Executáveis SOMENTE pelo service_role.
+-- ------------------------------------------------------------
+
+-- Compra de pergunta1/3/7: soma créditos e total comprado.
+CREATE OR REPLACE FUNCTION public.grant_chat_credits(p_user_id UUID, p_amount INT)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  UPDATE public.users
+  SET chat_credits_balance = chat_credits_balance + p_amount,
+      chat_credits_total_purchased = chat_credits_total_purchased + p_amount
+  WHERE id = p_user_id;
+$$;
+
+-- Reembolso/chargeback: remove créditos sem deixar saldo negativo.
+CREATE OR REPLACE FUNCTION public.revoke_chat_credits(p_user_id UUID, p_amount INT)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  UPDATE public.users
+  SET chat_credits_balance = GREATEST(chat_credits_balance - p_amount, 0)
+  WHERE id = p_user_id;
+$$;
+
+-- Consumo de 1 crédito ANTES da chamada de IA. Retorna true se reservou.
+CREATE OR REPLACE FUNCTION public.consume_chat_credit(p_user_id UUID)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE public.users
+  SET chat_credits_balance = chat_credits_balance - 1
+  WHERE id = p_user_id AND chat_credits_balance > 0;
+  RETURN FOUND;
+END;
+$$;
+
+-- Estorno da reserva quando a IA falha.
+CREATE OR REPLACE FUNCTION public.restore_chat_credit(p_user_id UUID)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  UPDATE public.users
+  SET chat_credits_balance = chat_credits_balance + 1
+  WHERE id = p_user_id;
+$$;
+
+-- Consumo de 1 mensagem da cota mensal (com virada de mês atômica).
+CREATE OR REPLACE FUNCTION public.consume_monthly_message(
+  p_user_id UUID, p_month TEXT, p_limit INT
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE public.users
+  SET messages_month = CASE
+        WHEN last_message_month = p_month THEN messages_month + 1
+        ELSE 1
+      END,
+      last_message_month = p_month
+  WHERE id = p_user_id
+    AND (last_message_month IS DISTINCT FROM p_month OR messages_month < p_limit);
+  RETURN FOUND;
+END;
+$$;
+
+-- Estorno da cota mensal quando a IA falha.
+CREATE OR REPLACE FUNCTION public.restore_monthly_message(p_user_id UUID, p_month TEXT)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  UPDATE public.users
+  SET messages_month = GREATEST(messages_month - 1, 0)
+  WHERE id = p_user_id AND last_message_month = p_month;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.grant_chat_credits(UUID, INT) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.revoke_chat_credits(UUID, INT) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.consume_chat_credit(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.restore_chat_credit(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.consume_monthly_message(UUID, TEXT, INT) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.restore_monthly_message(UUID, TEXT) FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.grant_chat_credits(UUID, INT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.revoke_chat_credits(UUID, INT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.consume_chat_credit(UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION public.restore_chat_credit(UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION public.consume_monthly_message(UUID, TEXT, INT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.restore_monthly_message(UUID, TEXT) TO service_role;
+
+-- ------------------------------------------------------------
+-- 7. IDEMPOTÊNCIA DOS WEBHOOKS: marcadores únicos
+-- O webhook insere o marcador ANTES de provisionar; entregas
+-- concorrentes do mesmo evento colidem no índice único (23505)
+-- e são descartadas — impossível creditar duas vezes.
+-- ------------------------------------------------------------
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_audit_stripe_receipt
+  ON public.audit_logs ((metadata->>'event_id'))
+  WHERE action = 'STRIPE_RECEIPT';
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_audit_kiwify_receipt
+  ON public.audit_logs (action, (metadata->>'order_id'))
+  WHERE action LIKE 'KIWIFY_RECEIPT_%';
+
+-- Busca de usuário por e-mail nos webhooks (resolveUserId)
+CREATE INDEX IF NOT EXISTS idx_users_email ON public.users (email);
+
+-- ------------------------------------------------------------
+-- 8. GRANTS
 -- ------------------------------------------------------------
 
 GRANT ALL ON public.chat_messages TO service_role;

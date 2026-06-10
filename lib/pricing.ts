@@ -153,12 +153,19 @@ export function currencyForRequest(req: Request): {
     else if (lang.startsWith("de")) locale = "de";
     else if (lang.startsWith("it")) locale = "it";
     else if (lang.startsWith("fr")) locale = "fr";
+    // Lusófonos fora do Brasil (Portugal etc.): moeda EUR, idioma português.
+    else if (lang.startsWith("pt")) locale = "pt-BR";
     return { currency: "eur", locale };
   }
 
   // Espanhol fora da zona do euro (México, Argentina, etc.) → USD em espanhol.
   if (lang.startsWith("es")) {
     return { currency: "usd", locale: "es" };
+  }
+
+  // Português fora do Brasil/eurozona (Angola, Moçambique...) → USD em PT.
+  if (lang.startsWith("pt")) {
+    return { currency: "usd", locale: "pt-BR" };
   }
 
   return { currency: "usd", locale: "en" };

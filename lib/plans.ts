@@ -226,27 +226,14 @@ export async function provisionPlan(
     if (error) errors.push(`credits.upsert: ${error.message}`);
   }
 
-  // 3. Créditos de chat (perguntas avulsas — sempre somam).
+  // 3. Créditos de chat (perguntas avulsas) — incremento ATÔMICO no banco
+  // (RPC grant_chat_credits), imune a race com o consumo do chat.
   if (config.chatCredits > 0) {
-    const { data: userRow, error: selErr } = await supabase
-      .from("users")
-      .select("chat_credits_balance, chat_credits_total_purchased")
-      .eq("id", userId)
-      .maybeSingle();
-    if (selErr) {
-      errors.push(`users.select chat: ${selErr.message}`);
-    } else {
-      const { error } = await supabase
-        .from("users")
-        .update({
-          chat_credits_balance:
-            (userRow?.chat_credits_balance ?? 0) + config.chatCredits,
-          chat_credits_total_purchased:
-            (userRow?.chat_credits_total_purchased ?? 0) + config.chatCredits,
-        })
-        .eq("id", userId);
-      if (error) errors.push(`users.update chat: ${error.message}`);
-    }
+    const { error } = await supabase.rpc("grant_chat_credits", {
+      p_user_id: userId,
+      p_amount: config.chatCredits,
+    });
+    if (error) errors.push(`grant_chat_credits: ${error.message}`);
   }
 
   return { ok: errors.length === 0, errors };

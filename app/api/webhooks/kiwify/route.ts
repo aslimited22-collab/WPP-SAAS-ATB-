@@ -53,13 +53,35 @@ function verifyKiwifySignature(rawBody: string, signature: string | null): boole
   }
 }
 
-// ─── Idempotência via audit_logs ──────────────────────────────────────────────
-async function isAlreadyProcessed(
+// ─── Idempotência via audit_logs (marcador ANTES de processar) ───────────────
+// O insert do marcador KIWIFY_RECEIPT_<evento> colide no índice único
+// uniq_audit_kiwify_receipt para entregas duplicadas/concorrentes do mesmo
+// (evento, order_id) — a segunda entrega é descartada antes de creditar.
+// Em falha de processamento (500), releaseKiwifyEvent remove o marcador
+// para o retry da Kiwify reprocessar.
+function kiwifyReceiptAction(eventType: string): string {
+  return `KIWIFY_RECEIPT_${eventType.toUpperCase().replace(/[^A-Z_]/g, "_")}`.slice(
+    0,
+    128
+  );
+}
+
+async function claimKiwifyEvent(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   eventType: string,
-  orderId: string
-): Promise<boolean> {
-  const action = `KIWIFY_${eventType.toUpperCase().replace(/[^A-Z_]/g, "_")}`;
+  orderId: string,
+  ipAddress: string
+): Promise<"claimed" | "duplicate"> {
+  const action = kiwifyReceiptAction(eventType);
+  const { error } = await supabase.from("audit_logs").insert({
+    user_id: null,
+    action,
+    ip_address: ipAddress,
+    metadata: { order_id: orderId },
+  });
+  if (!error) return "claimed";
+  if ((error as { code?: string }).code === "23505") return "duplicate";
+  // Erro de banco inesperado: cai no check de leitura (fail-open controlado).
   const { data } = await supabase
     .from("audit_logs")
     .select("id")
@@ -67,7 +89,19 @@ async function isAlreadyProcessed(
     .filter("metadata->order_id", "eq", `"${orderId}"`)
     .limit(1)
     .maybeSingle();
-  return !!data;
+  return data ? "duplicate" : "claimed";
+}
+
+async function releaseKiwifyEvent(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  eventType: string,
+  orderId: string
+) {
+  await supabase
+    .from("audit_logs")
+    .delete()
+    .eq("action", kiwifyReceiptAction(eventType))
+    .filter("metadata->order_id", "eq", `"${orderId}"`);
 }
 
 async function logAudit(
@@ -88,10 +122,20 @@ async function logAudit(
 }
 
 // ─── Resolver/criar usuário no Supabase Auth ─────────────────────────────────
+// 1º tenta public.users por e-mail (indexado, O(1)); depois cria no Auth;
+// por fim pagina o Auth (caso raro: existe no Auth mas não em public.users).
 async function resolveUserId(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   email: string
 ): Promise<string | null> {
+  const { data: existing } = await supabase
+    .from("users")
+    .select("id")
+    .eq("email", email.toLowerCase())
+    .limit(1)
+    .maybeSingle();
+  if (existing?.id) return existing.id;
+
   const { data: created, error: createError } =
     await supabase.auth.admin.createUser({ email, email_confirm: true });
   if (created?.user) return created.user.id;
@@ -243,10 +287,14 @@ export async function POST(request: NextRequest) {
     payload.subscription?.current_period_end ??
     null;
 
+  // O id do pedido do funil /limpeza pode chegar como external_reference ou
+  // ecoado pela Kiwify nos TrackingParameters (s1, setado pelo roteador).
   const externalRef: string | null =
     order.external_reference ??
     order.externalReference ??
     payload.external_reference ??
+    order.TrackingParameters?.s1 ??
+    payload.TrackingParameters?.s1 ??
     request.nextUrl.searchParams.get("external_reference") ??
     null;
 
@@ -257,8 +305,9 @@ export async function POST(request: NextRequest) {
   const supabase = createServiceSupabaseClient();
   const baseUrl = appBaseUrl(request);
 
-  // ── 5. Idempotência ───────────────────────────────────────────────────────
-  if (await isAlreadyProcessed(supabase, event, orderId)) {
+  // ── 5. Idempotência (marcador único ANTES de processar) ──────────────────
+  const claim = await claimKiwifyEvent(supabase, event, orderId, ipAddress);
+  if (claim === "duplicate") {
     return NextResponse.json({ message: "Evento já processado" }, { status: 200 });
   }
 
@@ -273,8 +322,16 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        // ── 6a. Limpeza vinda do funil /limpeza (external_reference UUID) ──
-        if (externalRef && UUID_RE.test(externalRef)) {
+        // ── 6a. Resolver o produto comprado PRIMEIRO ────────────────────────
+        // O external_reference só é honrado quando o produto pago É limpeza —
+        // um UUID forjado anexado a outro produto não pode sequestrar a
+        // entrega da limpeza nem pular o provisionamento do produto real.
+        const planKey: PlanKey | null =
+          resolvePlanFromEnv(productId, "KIWIFY_PRODUCT") ??
+          resolvePlanFromAmount(amountCents);
+
+        // ── 6b. Limpeza vinda do funil /limpeza (external_reference UUID) ──
+        if (planKey === "limpeza" && externalRef && UUID_RE.test(externalRef)) {
           const { data: limpezaOrder } = await supabase
             .from("limpeza_orders")
             .select("id, status")
@@ -323,11 +380,6 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // ── 6b. Resolver o produto comprado ─────────────────────────────────
-        const planKey: PlanKey | null =
-          resolvePlanFromEnv(productId, "KIWIFY_PRODUCT") ??
-          resolvePlanFromAmount(amountCents);
-
         if (!planKey) {
           // Produto desconhecido — registra para reconciliação manual e
           // responde 200 (a Kiwify não tem o que retentar aqui).
@@ -370,6 +422,7 @@ export async function POST(request: NextRequest) {
               "[Kiwify] Falha ao criar pedido de limpeza:",
               orderErr?.message
             );
+            await releaseKiwifyEvent(supabase, event, orderId);
             return NextResponse.json(
               { error: "Erro interno ao processar compra" },
               { status: 500 }
@@ -405,6 +458,7 @@ export async function POST(request: NextRequest) {
         // ── 6d. Assinaturas e perguntas avulsas → conta + créditos ──────────
         const userId = await resolveUserId(supabase, email);
         if (!userId) {
+          await releaseKiwifyEvent(supabase, event, orderId);
           return NextResponse.json(
             { error: "Erro interno ao processar compra" },
             { status: 500 }
@@ -441,6 +495,7 @@ export async function POST(request: NextRequest) {
         });
         if (!provision.ok) {
           console.error("[Kiwify] provisionPlan falhou:", provision.errors);
+          await releaseKiwifyEvent(supabase, event, orderId);
           return NextResponse.json(
             { error: "Erro interno ao provisionar" },
             { status: 500 }
@@ -480,6 +535,7 @@ export async function POST(request: NextRequest) {
           "[Kiwify] Erro inesperado ao processar order_approved",
           err instanceof Error ? err.message : ""
         );
+        await releaseKiwifyEvent(supabase, event, orderId);
         return NextResponse.json(
           { error: "Erro interno ao processar compra" },
           { status: 500 }
@@ -515,7 +571,10 @@ export async function POST(request: NextRequest) {
       break;
     }
 
-    case "order_refunded": {
+    // Reembolso e chargeback revogam da mesma forma.
+    case "order_refunded":
+    case "chargeback":
+    case "order_chargedback": {
       // Revoga conforme o que foi entregue nesta transação.
       const { data: prior } = await supabase
         .from("audit_logs")
@@ -541,25 +600,16 @@ export async function POST(request: NextRequest) {
           .eq("kiwify_transaction_id", orderId);
       }
 
-      // Créditos de chat avulsos → estorna (sem ficar negativo).
+      // Créditos de chat avulsos → estorno atômico (sem ficar negativo).
       if (
         prior?.user_id &&
         refundedPlan &&
         PLAN_CONFIG[refundedPlan]?.chatCredits > 0
       ) {
-        const { data: u } = await supabase
-          .from("users")
-          .select("chat_credits_balance")
-          .eq("id", prior.user_id)
-          .maybeSingle();
-        const newBalance = Math.max(
-          0,
-          (u?.chat_credits_balance ?? 0) - PLAN_CONFIG[refundedPlan].chatCredits
-        );
-        await supabase
-          .from("users")
-          .update({ chat_credits_balance: newBalance })
-          .eq("id", prior.user_id);
+        await supabase.rpc("revoke_chat_credits", {
+          p_user_id: prior.user_id,
+          p_amount: PLAN_CONFIG[refundedPlan].chatCredits,
+        });
       }
 
       // Limpeza → marca o pedido como reembolsado.
@@ -571,10 +621,54 @@ export async function POST(request: NextRequest) {
 
       await logAudit(supabase, {
         userId: prior?.user_id ?? sub?.user_id ?? null,
-        action: "KIWIFY_ORDER_REFUNDED",
+        action: `KIWIFY_${event.toUpperCase()}`,
         ipAddress,
         metadata: { order_id: orderId, plan: refundedPlan ?? null },
       });
+      break;
+    }
+
+    // Renovação mensal da assinatura: reativa e reprovisiona as leituras
+    // do plano vigente (equivalente ao invoice.payment_succeeded do Stripe).
+    case "subscription_renewed": {
+      if (subscriberId) {
+        const { data: sub } = await supabase
+          .from("subscriptions")
+          .select("user_id")
+          .eq("kiwify_subscriber_id", subscriberId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (sub) {
+          const renovacaoDate = renovacaoRaw ? new Date(renovacaoRaw) : null;
+          const renovacaoEm =
+            renovacaoDate && !isNaN(renovacaoDate.getTime())
+              ? renovacaoDate.toISOString()
+              : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+          await supabase
+            .from("subscriptions")
+            .update({ status: "active", renovacao_em: renovacaoEm })
+            .eq("user_id", sub.user_id);
+
+          const { data: userRow } = await supabase
+            .from("users")
+            .select("plan")
+            .eq("id", sub.user_id)
+            .maybeSingle();
+          const renewedPlan: PlanKey =
+            userRow?.plan === "premium" ? "premium" : "basic";
+          await provisionPlan(supabase, sub.user_id, renewedPlan);
+
+          await logAudit(supabase, {
+            userId: sub.user_id,
+            action: "KIWIFY_SUBSCRIPTION_RENEWED",
+            ipAddress,
+            metadata: { order_id: orderId, subscriberId },
+          });
+        }
+      }
       break;
     }
 

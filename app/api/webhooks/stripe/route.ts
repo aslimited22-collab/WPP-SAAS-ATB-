@@ -61,18 +61,42 @@ function periodEndFromSubscription(sub: Stripe.Subscription): number | null {
   return item?.current_period_end ?? null;
 }
 
-// ─── Idempotência via audit_logs ──────────────────────────────────────────────
-async function isEventProcessed(
+// ─── Idempotência via audit_logs (marcador ANTES de processar) ───────────────
+// O insert do marcador STRIPE_RECEIPT colide no índice único
+// uniq_audit_stripe_receipt para entregas duplicadas/concorrentes do mesmo
+// event.id — a segunda entrega é descartada antes de tocar em créditos.
+// Em falha de processamento (500), releaseEvent remove o marcador para que
+// o retry do Stripe consiga reprocessar.
+async function claimEvent(
   supabase: ServiceClient,
-  eventId: string
-): Promise<boolean> {
+  eventId: string,
+  ipAddress: string
+): Promise<"claimed" | "duplicate"> {
+  const { error } = await supabase.from("audit_logs").insert({
+    user_id: null,
+    action: "STRIPE_RECEIPT",
+    ip_address: ipAddress,
+    metadata: { event_id: eventId },
+  });
+  if (!error) return "claimed";
+  if ((error as { code?: string }).code === "23505") return "duplicate";
+  // Erro de banco inesperado: cai no check de leitura (fail-open controlado).
   const { data } = await supabase
     .from("audit_logs")
     .select("id")
+    .eq("action", "STRIPE_RECEIPT")
     .eq("metadata->>event_id", eventId)
     .limit(1)
     .maybeSingle();
-  return !!data;
+  return data ? "duplicate" : "claimed";
+}
+
+async function releaseEvent(supabase: ServiceClient, eventId: string) {
+  await supabase
+    .from("audit_logs")
+    .delete()
+    .eq("action", "STRIPE_RECEIPT")
+    .eq("metadata->>event_id", eventId);
 }
 
 async function logAudit(
@@ -94,10 +118,20 @@ async function logAudit(
 }
 
 // ─── Resolver/criar usuário no Supabase Auth ─────────────────────────────────
+// 1º tenta public.users por e-mail (indexado, O(1)); depois cria no Auth;
+// por fim pagina o Auth (caso raro: existe no Auth mas não em public.users).
 async function resolveUserId(
   supabase: ServiceClient,
   email: string
 ): Promise<string | null> {
+  const { data: existing } = await supabase
+    .from("users")
+    .select("id")
+    .eq("email", email.toLowerCase())
+    .limit(1)
+    .maybeSingle();
+  if (existing?.id) return existing.id;
+
   const { data: created, error: createError } =
     await supabase.auth.admin.createUser({ email, email_confirm: true });
   if (created?.user) return created.user.id;
@@ -206,11 +240,15 @@ async function handlePaidCheckout(opts: {
   }
 
   // ── Limpeza vinda do funil (order_id em metadata/client_reference_id) ──────
+  // O ramo de limpeza SÓ é acionado quando o produto pago É limpeza
+  // (metadata.plan) — um order UUID anexado a outro produto é ignorado,
+  // senão uma compra barata com order forjado receberia a limpeza e o
+  // produto realmente pago nunca seria provisionado.
   const orderRef =
     session.metadata?.order_id ?? session.client_reference_id ?? null;
   const planMeta = session.metadata?.plan ?? null;
 
-  if (planMeta === "limpeza" || (orderRef && UUID_RE.test(orderRef))) {
+  if (planMeta === "limpeza") {
     let limpezaOrderId: string | null = null;
 
     if (orderRef && UUID_RE.test(orderRef)) {
@@ -242,7 +280,7 @@ async function handlePaidCheckout(opts: {
     }
 
     // Compra de limpeza sem pedido do funil → cria pedido genérico e entrega.
-    if (!limpezaOrderId && planMeta === "limpeza") {
+    if (!limpezaOrderId) {
       const { data: createdOrder, error: orderErr } = await supabase
         .from("limpeza_orders")
         .insert({
@@ -265,6 +303,7 @@ async function handlePaidCheckout(opts: {
           "[Stripe] Falha ao criar pedido de limpeza:",
           orderErr?.message
         );
+        await releaseEvent(supabase, eventId);
         return NextResponse.json(
           { error: "Erro interno ao processar compra" },
           { status: 500 }
@@ -335,6 +374,7 @@ async function handlePaidCheckout(opts: {
 
   const userId = await resolveUserId(supabase, email);
   if (!userId) {
+    await releaseEvent(supabase, eventId);
     return NextResponse.json(
       { error: "Erro interno ao processar compra" },
       { status: 500 }
@@ -379,6 +419,7 @@ async function handlePaidCheckout(opts: {
   });
   if (!provision.ok) {
     console.error("[Stripe] provisionPlan falhou:", provision.errors);
+    await releaseEvent(supabase, eventId);
     return NextResponse.json(
       { error: "Erro interno ao provisionar" },
       { status: 500 }
@@ -425,23 +466,37 @@ async function handlePaidCheckout(opts: {
 // Localiza o que foi entregue pela transação (audit_logs.payment_intent) e
 // desfaz: assinatura → inactive · créditos de chat → estorno · limpeza →
 // pedido marcado como refunded.
+//
+// Assinaturas (mode=subscription) NÃO têm payment_intent na sessão de
+// checkout — a cobrança vem do invoice. Para esses casos, o fallback
+// stripeCustomerId localiza e inativa a assinatura pelo customer.
 async function revokeByPaymentIntent(
   supabase: ServiceClient,
-  paymentIntentId: string,
-  action: string,
-  eventId: string,
-  ipAddress: string
+  opts: {
+    paymentIntentId: string | null;
+    stripeCustomerId: string | null;
+    action: string;
+    eventId: string;
+    ipAddress: string;
+  }
 ) {
-  const { data: prior } = await supabase
-    .from("audit_logs")
-    .select("user_id, metadata")
-    .eq("action", "STRIPE_CHECKOUT_SESSION_COMPLETED")
-    .filter("metadata->payment_intent", "eq", `"${paymentIntentId}"`)
-    .limit(1)
-    .maybeSingle();
+  const { paymentIntentId, stripeCustomerId, action, eventId, ipAddress } = opts;
+
+  let prior: { user_id: string | null; metadata: unknown } | null = null;
+  if (paymentIntentId) {
+    const { data } = await supabase
+      .from("audit_logs")
+      .select("user_id, metadata")
+      .eq("action", "STRIPE_CHECKOUT_SESSION_COMPLETED")
+      .filter("metadata->payment_intent", "eq", `"${paymentIntentId}"`)
+      .limit(1)
+      .maybeSingle();
+    prior = data ?? null;
+  }
 
   const meta = (prior?.metadata ?? {}) as Record<string, unknown>;
   const plan = meta.plan as PlanKey | undefined;
+  let revokedUserId: string | null = prior?.user_id ?? null;
 
   if (prior?.user_id && plan && PLAN_CONFIG[plan]?.isSubscription) {
     await supabase
@@ -451,33 +506,49 @@ async function revokeByPaymentIntent(
   }
 
   if (prior?.user_id && plan && PLAN_CONFIG[plan]?.chatCredits > 0) {
-    const { data: u } = await supabase
-      .from("users")
-      .select("chat_credits_balance")
-      .eq("id", prior.user_id)
-      .maybeSingle();
-    const newBalance = Math.max(
-      0,
-      (u?.chat_credits_balance ?? 0) - PLAN_CONFIG[plan].chatCredits
-    );
-    await supabase
-      .from("users")
-      .update({ chat_credits_balance: newBalance })
-      .eq("id", prior.user_id);
+    await supabase.rpc("revoke_chat_credits", {
+      p_user_id: prior.user_id,
+      p_amount: PLAN_CONFIG[plan].chatCredits,
+    });
   }
 
-  await supabase
-    .from("limpeza_orders")
-    .update({ status: "refunded" })
-    .eq("payment_provider", "stripe")
-    .eq("payment_id", paymentIntentId);
+  // Fallback para cobranças de assinatura (sem payment_intent no checkout):
+  // inativa a assinatura localizada pelo stripe_customer_id.
+  if (!prior && stripeCustomerId) {
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("user_id")
+      .eq("stripe_customer_id", stripeCustomerId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (sub?.user_id) {
+      revokedUserId = sub.user_id;
+      await supabase
+        .from("subscriptions")
+        .update({ status: "inactive" })
+        .eq("user_id", sub.user_id);
+    }
+  }
+
+  if (paymentIntentId) {
+    await supabase
+      .from("limpeza_orders")
+      .update({ status: "refunded" })
+      .eq("payment_provider", "stripe")
+      .eq("payment_id", paymentIntentId);
+  }
 
   await logAudit(supabase, {
-    userId: prior?.user_id ?? null,
+    userId: revokedUserId,
     action,
     ipAddress,
     eventId,
-    metadata: { payment_intent: paymentIntentId, plan: plan ?? null },
+    metadata: {
+      payment_intent: paymentIntentId,
+      stripe_customer_id: stripeCustomerId,
+      plan: plan ?? null,
+    },
   });
 }
 
@@ -545,9 +616,9 @@ export async function POST(request: NextRequest) {
   const supabase = createServiceSupabaseClient();
   const baseUrl = appBaseUrl(request);
 
-  // ── 5. Idempotência universal ─────────────────────────────────────────────
-  const alreadyDone = await isEventProcessed(supabase, event.id);
-  if (alreadyDone) {
+  // ── 5. Idempotência universal (marcador único ANTES de processar) ─────────
+  const claim = await claimEvent(supabase, event.id, ipAddress);
+  if (claim === "duplicate") {
     return NextResponse.json({ message: "Evento já processado" }, { status: 200 });
   }
 
@@ -588,6 +659,7 @@ export async function POST(request: NextRequest) {
           "[Stripe] Erro inesperado em checkout.session.completed",
           err instanceof Error ? err.message : ""
         );
+        await releaseEvent(supabase, event.id);
         return NextResponse.json(
           { error: "Erro interno ao processar compra" },
           { status: 500 }
@@ -611,6 +683,7 @@ export async function POST(request: NextRequest) {
           "[Stripe] Erro em async_payment_succeeded",
           err instanceof Error ? err.message : ""
         );
+        await releaseEvent(supabase, event.id);
         return NextResponse.json(
           { error: "Erro interno ao processar compra" },
           { status: 500 }
@@ -699,6 +772,7 @@ export async function POST(request: NextRequest) {
           "[Stripe] Erro inesperado em invoice.payment_succeeded",
           err instanceof Error ? err.message : ""
         );
+        await releaseEvent(supabase, event.id);
         return NextResponse.json(
           { error: "Erro interno ao renovar créditos" },
           { status: 500 }
@@ -747,6 +821,7 @@ export async function POST(request: NextRequest) {
           "[Stripe] Erro inesperado em invoice.payment_failed",
           err instanceof Error ? err.message : ""
         );
+        await releaseEvent(supabase, event.id);
         return NextResponse.json(
           { error: "Erro interno ao processar falha de pagamento" },
           { status: 500 }
@@ -792,6 +867,7 @@ export async function POST(request: NextRequest) {
           "[Stripe] Erro inesperado em customer.subscription.deleted",
           err instanceof Error ? err.message : ""
         );
+        await releaseEvent(supabase, event.id);
         return NextResponse.json(
           { error: "Erro interno ao cancelar assinatura" },
           { status: 500 }
@@ -802,18 +878,32 @@ export async function POST(request: NextRequest) {
 
     case "charge.refunded": {
       const charge = event.data.object as Stripe.Charge;
-      const paymentIntentId = idFromExpandable(
-        charge.payment_intent as string | { id: string } | null
-      );
-      if (paymentIntentId) {
-        await revokeByPaymentIntent(
-          supabase,
-          paymentIntentId,
-          "STRIPE_CHARGE_REFUNDED",
-          event.id,
-          ipAddress
-        );
+      // O evento também dispara em reembolso PARCIAL — só revogamos quando a
+      // cobrança foi integralmente devolvida (charge.refunded === true).
+      if (!charge.refunded) {
+        await logAudit(supabase, {
+          action: "STRIPE_CHARGE_PARTIAL_REFUND",
+          ipAddress,
+          eventId: event.id,
+          metadata: {
+            charge_id: charge.id,
+            amount_refunded: charge.amount_refunded,
+            amount: charge.amount,
+          },
+        });
+        break;
       }
+      await revokeByPaymentIntent(supabase, {
+        paymentIntentId: idFromExpandable(
+          charge.payment_intent as string | { id: string } | null
+        ),
+        stripeCustomerId: idFromExpandable(
+          charge.customer as string | { id: string } | null
+        ),
+        action: "STRIPE_CHARGE_REFUNDED",
+        eventId: event.id,
+        ipAddress,
+      });
       break;
     }
 
@@ -822,15 +912,29 @@ export async function POST(request: NextRequest) {
       const paymentIntentId = idFromExpandable(
         dispute.payment_intent as string | { id: string } | null
       );
-      if (paymentIntentId) {
-        await revokeByPaymentIntent(
-          supabase,
-          paymentIntentId,
-          "STRIPE_CHARGE_DISPUTED",
-          event.id,
-          ipAddress
-        );
+      // A disputa não traz o customer — recupera da charge para permitir o
+      // fallback de revogação de assinaturas.
+      let disputeCustomerId: string | null = null;
+      const chargeId = idFromExpandable(
+        dispute.charge as string | { id: string } | null
+      );
+      if (chargeId) {
+        try {
+          const charge = await stripe.charges.retrieve(chargeId);
+          disputeCustomerId = idFromExpandable(
+            charge.customer as string | { id: string } | null
+          );
+        } catch {
+          // segue sem customer — revogação por payment_intent ainda funciona
+        }
       }
+      await revokeByPaymentIntent(supabase, {
+        paymentIntentId,
+        stripeCustomerId: disputeCustomerId,
+        action: "STRIPE_CHARGE_DISPUTED",
+        eventId: event.id,
+        ipAddress,
+      });
       break;
     }
 

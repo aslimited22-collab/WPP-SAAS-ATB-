@@ -122,19 +122,6 @@ export async function POST(request: NextRequest) {
   }
 
   const monthKey = currentMonthKey();
-  const usedMonth =
-    profile?.last_message_month === monthKey ? profile?.messages_month ?? 0 : 0;
-  if (!usingCredits && plan !== "free") {
-    const planLimit = MESSAGE_LIMITS_MONTH[plan];
-    if (usedMonth >= planLimit) {
-      return NextResponse.json(
-        {
-          error: `Você atingiu o limite de ${planLimit} mensagens deste mês no seu plano.`,
-        },
-        { status: 429 }
-      );
-    }
-  }
 
   // ── Throttle entre mensagens ────────────────────────────────────────────────
   const { data: lastMsg } = await supabase
@@ -157,6 +144,48 @@ export async function POST(request: NextRequest) {
       );
     }
   }
+
+  // ── Reservar a cobrança ATOMICAMENTE antes de chamar a IA ──────────────────
+  // RPCs com UPDATE condicional impedem gasto duplo por requisições
+  // concorrentes e não sobrescrevem créditos somados por webhook no meio
+  // do streaming. Em falha da IA, o estorno devolve a reserva.
+  if (usingCredits) {
+    const { data: consumed, error: rpcErr } = await supabase.rpc(
+      "consume_chat_credit",
+      { p_user_id: userId }
+    );
+    if (rpcErr || !consumed) {
+      return NextResponse.json(
+        { error: "Você não tem créditos disponíveis.", needsUpgrade: true },
+        { status: 402 }
+      );
+    }
+  } else {
+    const planLimit = MESSAGE_LIMITS_MONTH[plan as UserPlan];
+    const { data: consumed, error: rpcErr } = await supabase.rpc(
+      "consume_monthly_message",
+      { p_user_id: userId, p_month: monthKey, p_limit: planLimit }
+    );
+    if (rpcErr || !consumed) {
+      return NextResponse.json(
+        {
+          error: `Você atingiu o limite de ${planLimit} mensagens deste mês no seu plano.`,
+        },
+        { status: 429 }
+      );
+    }
+  }
+
+  const refundCharge = async () => {
+    if (usingCredits) {
+      await supabase.rpc("restore_chat_credit", { p_user_id: userId });
+    } else {
+      await supabase.rpc("restore_monthly_message", {
+        p_user_id: userId,
+        p_month: monthKey,
+      });
+    }
+  };
 
   // ── Histórico (últimas 20) + registro da mensagem do usuário ───────────────
   const { data: history } = await supabase
@@ -195,11 +224,13 @@ export async function POST(request: NextRequest) {
     ]);
   } catch {
     await rollbackUserMessage();
+    await refundCharge();
     return NextResponse.json({ error: "Erro na consulta" }, { status: 502 });
   }
 
   if (!upstream.ok || !upstream.body) {
     await rollbackUserMessage();
+    await refundCharge();
     return NextResponse.json({ error: "Erro na consulta" }, { status: 502 });
   }
 
@@ -241,28 +272,16 @@ export async function POST(request: NextRequest) {
         return;
       } finally {
         if (full) {
+          // A cobrança já foi reservada atomicamente antes do stream.
           await supabase.from("chat_messages").insert({
             user_id: userId,
             role: "assistant",
             content: full.slice(0, 8000),
           });
-          // Cobrança: créditos avulsos têm prioridade sobre cota mensal.
-          if (usingCredits) {
-            await supabase
-              .from("users")
-              .update({ chat_credits_balance: Math.max(0, creditsBalance - 1) })
-              .eq("id", userId);
-          } else {
-            await supabase
-              .from("users")
-              .update({
-                messages_month: usedMonth + 1,
-                last_message_month: monthKey,
-              })
-              .eq("id", userId);
-          }
         } else {
+          // Stream abriu mas não veio conteúdo — devolve a reserva.
           await rollbackUserMessage();
+          await refundCharge();
         }
         controller.close();
       }

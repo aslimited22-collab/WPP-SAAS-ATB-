@@ -102,17 +102,23 @@ export async function deliverLimpezaOrder(
     console.error("[Delivery] Falha na geração da limpeza:", generation.reason);
   }
 
-  // ── 2. E-mail ──────────────────────────────────────────────────────────────
-  const email = await sendLimpezaEmail({
-    email: order.email,
-    nome: order.nome,
-    locale,
-    deliveryLink,
-  });
+  // ── 2. E-mail — SÓ depois da leitura existir ───────────────────────────────
+  // Sem leitura gerada não enviamos "está pronta": o pedido fica com
+  // delivery_status='failed' e o reprocessamento (/api/limpeza/generate)
+  // tenta de novo gerar E entregar.
+  let email: DeliverResult["email"] = { ok: false, reason: "generation_failed" };
+  if (generation.ok) {
+    email = await sendLimpezaEmail({
+      email: order.email,
+      nome: order.nome,
+      locale,
+      deliveryLink,
+    });
+  }
 
   // ── 3. WhatsApp (se houver telefone) ───────────────────────────────────────
   let whatsapp: DeliverResult["whatsapp"] = { ok: false, reason: "no_phone" };
-  if (order.phone) {
+  if (generation.ok && order.phone) {
     try {
       const firstName =
         (order.nome ?? "").trim().split(/\s+/)[0] ||
@@ -128,10 +134,14 @@ export async function deliverLimpezaOrder(
   }
 
   // ── 4. Status final ─────────────────────────────────────────────────────────
+  // Geração falha = entrega falha (mesmo que algum canal tivesse saído):
+  // pedidos quebrados ficam visíveis para reprocessamento.
   let finalDeliveryStatus: DeliverResult["finalDeliveryStatus"] = "failed";
-  if (email.ok && whatsapp.ok) finalDeliveryStatus = "both_sent";
-  else if (email.ok) finalDeliveryStatus = "email_sent";
-  else if (whatsapp.ok) finalDeliveryStatus = "whatsapp_sent";
+  if (generation.ok) {
+    if (email.ok && whatsapp.ok) finalDeliveryStatus = "both_sent";
+    else if (email.ok) finalDeliveryStatus = "email_sent";
+    else if (whatsapp.ok) finalDeliveryStatus = "whatsapp_sent";
+  }
 
   const errors: string[] = [];
   if (!generation.ok) errors.push(`gen:${generation.reason}`);

@@ -145,16 +145,19 @@ export async function sendAccessEmail(
     escapeHtml((opts.nome ?? "").trim().split(/\s+/)[0]) ||
     (opts.locale === "en" ? "dear soul" : opts.locale === "es" ? "querida alma" : "querida alma");
 
-  // Magic link de acesso direto. redirectTo passa pelo callback de auth.
+  // Magic link de acesso direto. Usamos o hashed_token apontando para o
+  // NOSSO callback (?token_hash=), que chama verifyOtp server-side — o
+  // action_link bruto do Supabase não funciona aqui porque o fluxo PKCE
+  // exige um code_verifier que só existe quando o login começa no browser.
   let actionLink = `${opts.baseUrl}/login`;
   try {
     const { data, error } = await supabase.auth.admin.generateLink({
       type: "magiclink",
       email: opts.email,
-      options: { redirectTo: `${opts.baseUrl}/api/auth/callback` },
     });
-    if (!error && data?.properties?.action_link) {
-      actionLink = data.properties.action_link;
+    const hashedToken = data?.properties?.hashed_token;
+    if (!error && hashedToken) {
+      actionLink = `${opts.baseUrl}/api/auth/callback?token_hash=${encodeURIComponent(hashedToken)}&next=/dashboard`;
     }
   } catch {
     // mantém o fallback /login
