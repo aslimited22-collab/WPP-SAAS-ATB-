@@ -107,89 +107,69 @@ export const readingRequestSchema = z.object({
 
 export type ReadingRequestInput = z.infer<typeof readingRequestSchema>;
 
-// ─── Webhook Kiwify ───────────────────────────────────────────────────────────
-// Payload enviado pela Kiwify em cada evento de compra/assinatura.
-// Eventos suportados:
-//   order_approved          → compra aprovada / renovação de assinatura
-//   order_refunded          → estorno / chargeback
-//   subscription_canceled   → cancelamento de assinatura
-//   subscription_reactivated → reativação de assinatura
-//
-// Validação de autenticidade:
-//   • token     (no corpo) deve bater com KIWIFY_WEBHOOK_TOKEN (comparação timing-safe)
-//   • Signature (no corpo) = HMAC-SHA256(KIWIFY_WEBHOOK_TOKEN, order_id)
-export const kiwifyWebhookSchema = z.object({
-  webhook_event_type: z
+// ─── Pedido do funil da Limpeza Espiritual (/limpeza) ────────────────────────
+// Criado ANTES do pagamento; o webhook (Kiwify external_reference ou Stripe
+// metadata.order_id) marca como pago e dispara a entrega.
+// Nome aceita qualquer alfabeto (\p{L}) — compradores internacionais.
+export const LIMPEZA_TEMAS = [
+  "energia_pesada",
+  "inveja",
+  "amor_travado",
+  "caminhos_fechados",
+  "separacao",
+  "protecao_espiritual",
+  "dinheiro_trabalho",
+  "tristeza_coracao",
+] as const;
+
+export const LIMPEZA_SIGNOS = [
+  "aries", "touro", "gemeos", "cancer", "leao", "virgem",
+  "libra", "escorpiao", "sagitario", "capricornio", "aquario", "peixes",
+] as const;
+
+export const limpezaOrderSchema = z.object({
+  nome: z
     .string()
-    .min(1)
-    .max(64)
-    // Apenas caracteres seguros para evitar log injection
-    .regex(/^[a-z_]+$/, "webhook_event_type inválido"),
-  order_id: z
-    .string()
-    .min(1, "order_id obrigatório")
-    .max(128, "order_id muito longo")
-    .regex(/^[a-zA-Z0-9_-]+$/, "order_id contém caracteres inválidos"),
-  order_status: z.string().max(32).optional(),
-  token: z
-    .string()
-    .min(1, "token obrigatório")
-    .max(256, "token muito longo"),
-  Signature: z
-    .string()
-    .min(64, "Signature muito curta")
-    .max(128, "Signature muito longa")
-    .regex(/^[a-f0-9]+$/, "Signature deve ser hex"),
-  customer: z
-    .object({
-      name: z.string().max(200).optional(),
-      email: z.string().email().max(255).optional(),
-      mobile: z.string().max(20).optional(),
-      // document (CPF) não é usado — ignorado intencionalmente
-    })
-    .optional(),
-  // Identificação do produto comprado — usada para mapear o plano.
-  // A Kiwify envia o produto em `Product` (product_id / product_name).
-  Product: z
-    .object({
-      product_id: z
+    .min(2, "Nome muito curto")
+    .max(100, "Nome muito longo")
+    .transform(stripControlChars)
+    .pipe(
+      z
         .string()
-        .max(128)
-        .regex(/^[a-zA-Z0-9_-]*$/)
-        .optional(),
-      product_name: z.string().max(200).optional(),
-    })
-    .optional(),
-  // Valor pago — fallback para mapear o plano quando não há product_id
-  // configurado. `charge_amount` vem em centavos (pode ser número ou string).
-  Commissions: z
-    .object({
-      charge_amount: z.union([z.number(), z.string().max(32)]).optional(),
-    })
-    .optional(),
-  subscription: z
-    .object({
-      id: z
-        .string()
-        .max(128)
-        .regex(/^[a-zA-Z0-9_-]*$/)
-        .optional(),
-      status: z.string().max(32).optional(),
-      subscriber_id: z.string().max(128).optional(),
-      current_period_end: z
-        .string()
-        .max(64)
-        .refine((v) => {
-          if (!v) return true;
-          const d = new Date(v);
-          return !isNaN(d.getTime());
-        }, "current_period_end não é uma data válida")
-        .optional(),
-    })
-    .optional(),
+        .regex(/^[\p{L}\p{M}\s'.-]+$/u, "Nome contém caracteres inválidos")
+        .min(2)
+    )
+    .transform((v) => v.trim()),
+  email: z
+    .string()
+    .min(5, "E-mail muito curto")
+    .email("E-mail inválido")
+    .max(255)
+    .toLowerCase()
+    .trim(),
+  phone: z
+    .string()
+    .max(20)
+    .regex(/^\+?[0-9\s()-]*$/, "Telefone inválido")
+    .optional()
+    .transform((v) => {
+      const digits = (v ?? "").replace(/\D/g, "");
+      return digits.length >= 8 ? digits : undefined;
+    }),
+  signo: z.enum(LIMPEZA_SIGNOS).optional(),
+  tema: z.enum(LIMPEZA_TEMAS, {
+    errorMap: () => ({ message: "Tema inválido" }),
+  }),
+  pergunta: z
+    .string()
+    .max(600, "Texto muito longo")
+    .transform(stripControlChars)
+    .optional()
+    .transform((v) => (v ?? "").trim()),
+  locale: z.enum(["pt-BR", "en", "es"]).default("pt-BR"),
 });
 
-export type KiwifyWebhookPayload = z.infer<typeof kiwifyWebhookSchema>;
+export type LimpezaOrderInput = z.infer<typeof limpezaOrderSchema>;
 
 // ─── Magic link login ─────────────────────────────────────────────────────────
 export const loginSchema = z.object({

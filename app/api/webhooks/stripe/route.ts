@@ -1,3 +1,16 @@
+// ─── Webhook Stripe (internacional) ───────────────────────────────────────────
+// Recebe os checkouts criados pelo roteador /api/checkout/[plan].
+// O produto é resolvido por metadata.plan (gravado na criação da sessão) —
+// NUNCA por valor, pois moedas diferentes (USD/EUR/JPY) colidiriam.
+//
+// Eventos tratados:
+//   checkout.session.completed / async_payment_succeeded → provisiona
+//   checkout.session.async_payment_failed                → registra falha
+//   invoice.payment_succeeded                            → renovação
+//   invoice.payment_failed                               → assinatura inativa
+//   customer.subscription.deleted                        → cancelamento
+//   charge.refunded / charge.dispute.created             → revoga acesso
+
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createServiceSupabaseClient } from "@/lib/supabase";
@@ -5,39 +18,28 @@ import { checkWebhookRateLimit } from "@/lib/ratelimit";
 import {
   provisionPlan,
   resolvePlanFromEnv,
-  resolvePlanFromAmount,
+  PLAN_CONFIG,
   type PlanKey,
 } from "@/lib/plans";
+import { getStripe } from "@/lib/stripe";
+import { normalizeLocale, type AppLocale } from "@/lib/locale";
+import { isValidProduct } from "@/lib/pricing";
+import { deliverLimpezaOrder } from "@/lib/delivery";
+import { sendAccessEmail, sendAdminSaleNotification } from "@/lib/email";
 
-// Stripe usa a API "dahlia" (pinada pelo SDK). O webhook precisa do corpo
-// bruto da requisição para validar a assinatura, por isso roda no runtime
-// Node.js (e nunca no Edge, que não expõe o crypto necessário).
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Entrega da limpeza gera leitura com IA dentro do webhook — precisa de folga.
+export const maxDuration = 120;
 
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY ?? "";
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? "";
-
-// Limite de tamanho do corpo: payloads do Stripe podem ser maiores que os da
-// Kiwify (eventos com objetos expandidos), então usamos 256 KB de folga.
 const MAX_BODY_BYTES = 256 * 1024;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// ─── Cliente Stripe (singleton lazy) ──────────────────────────────────────────
-let stripeClient: Stripe | null = null;
-function getStripe(): Stripe {
-  if (stripeClient) return stripeClient;
-  if (!STRIPE_SECRET_KEY) {
-    throw new Error("STRIPE_SECRET_KEY não configurada");
-  }
-  // Sem apiVersion explícita: o SDK usa a versão pinada (2026-05-27.dahlia),
-  // que é exatamente a versão para a qual os tipos foram gerados.
-  stripeClient = new Stripe(STRIPE_SECRET_KEY);
-  return stripeClient;
-}
+type ServiceClient = ReturnType<typeof createServiceSupabaseClient>;
 
-// ─── Helpers para extrair IDs de campos possivelmente expandidos ──────────────
-// Campos como `customer` e `subscription` no Stripe podem vir como string (id)
-// ou como objeto expandido. Aqui normalizamos sempre para o id (string) ou null.
+// Campos como `customer`/`subscription` podem vir como string (id) ou objeto
+// expandido — normaliza sempre para o id (string) ou null.
 function idFromExpandable(
   value: string | { id: string } | null | undefined
 ): string | null {
@@ -45,8 +47,6 @@ function idFromExpandable(
   return typeof value === "string" ? value : value.id ?? null;
 }
 
-// Converte um timestamp Unix (segundos) do Stripe em ISO string.
-// Retorna fallback de +30 dias se o valor for inválido/ausente.
 function unixToRenovacaoEm(unixSeconds: number | null | undefined): string {
   if (typeof unixSeconds === "number" && Number.isFinite(unixSeconds)) {
     const d = new Date(unixSeconds * 1000);
@@ -55,19 +55,15 @@ function unixToRenovacaoEm(unixSeconds: number | null | undefined): string {
   return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 }
 
-// Extrai o current_period_end de uma assinatura. Na API dahlia esse campo
-// fica em cada item da assinatura (subscription.items.data[].current_period_end).
+// Na API dahlia o current_period_end fica em cada item da assinatura.
 function periodEndFromSubscription(sub: Stripe.Subscription): number | null {
   const item = sub.items?.data?.[0];
   return item?.current_period_end ?? null;
 }
 
 // ─── Idempotência via audit_logs ──────────────────────────────────────────────
-// Cada evento do Stripe tem um id único (evt_...). Registramos esse id em
-// metadata.event_id; se já existir um log com o mesmo event_id, o evento já
-// foi processado e deve ser ignorado.
 async function isEventProcessed(
-  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  supabase: ServiceClient,
   eventId: string
 ): Promise<boolean> {
   const { data } = await supabase
@@ -80,7 +76,7 @@ async function isEventProcessed(
 }
 
 async function logAudit(
-  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  supabase: ServiceClient,
   params: {
     userId?: string | null;
     action: string;
@@ -93,31 +89,19 @@ async function logAudit(
     user_id: params.userId ?? null,
     action: params.action,
     ip_address: params.ipAddress ?? null,
-    // event_id sempre presente — é a chave de idempotência
     metadata: { event_id: params.eventId, ...(params.metadata ?? {}) },
   });
 }
 
-// ─── Resolver o usuário no Supabase Auth ──────────────────────────────────────
-// Mesmo padrão do webhook Kiwify: o SDK não expõe getUserByEmail, então
-// tentamos criar o usuário; se o e-mail já existir, localizamos via listUsers
-// (paginado). Retorna o userId ou null em caso de falha total.
+// ─── Resolver/criar usuário no Supabase Auth ─────────────────────────────────
 async function resolveUserId(
-  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  supabase: ServiceClient,
   email: string
 ): Promise<string | null> {
   const { data: created, error: createError } =
-    await supabase.auth.admin.createUser({
-      email,
-      email_confirm: true,
-    });
+    await supabase.auth.admin.createUser({ email, email_confirm: true });
+  if (created?.user) return created.user.id;
 
-  if (created?.user) {
-    return created.user.id;
-  }
-
-  // createUser falhou — provavelmente o e-mail já está registrado.
-  // Procurar o usuário existente percorrendo as páginas.
   let page = 1;
   const perPage = 200;
   const MAX_PAGES = 50;
@@ -140,10 +124,8 @@ async function resolveUserId(
   return null;
 }
 
-// Localiza a subscription no banco a partir dos identificadores Stripe.
-// Tenta primeiro por stripe_subscription_id; se não encontrar, por customer.
 async function findSubscriptionUserId(
-  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  supabase: ServiceClient,
   stripeSubscriptionId: string | null,
   stripeCustomerId: string | null
 ): Promise<string | null> {
@@ -172,11 +154,338 @@ async function findSubscriptionUserId(
   return null;
 }
 
+function appBaseUrl(request: NextRequest): string {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin
+  ).replace(/\/$/, "");
+}
+
+// ─── Provisionamento de um checkout pago ──────────────────────────────────────
+// Compartilhado por checkout.session.completed (pagamento síncrono) e
+// checkout.session.async_payment_succeeded (boleto e afins).
+async function handlePaidCheckout(opts: {
+  supabase: ServiceClient;
+  stripe: Stripe;
+  session: Stripe.Checkout.Session;
+  eventId: string;
+  ipAddress: string;
+  baseUrl: string;
+}): Promise<NextResponse> {
+  const { supabase, stripe, session, eventId, ipAddress, baseUrl } = opts;
+
+  const email = (
+    session.customer_details?.email ??
+    session.customer_email ??
+    ""
+  ).toLowerCase();
+  const nome = (session.customer_details?.name ?? "").slice(0, 100);
+  const phone = session.customer_details?.phone ?? null;
+  const stripeCustomerId = idFromExpandable(session.customer);
+  const stripeSubscriptionId = idFromExpandable(session.subscription);
+  const paymentIntentId = idFromExpandable(
+    session.payment_intent as string | { id: string } | null
+  );
+  const currency = String(session.currency ?? "usd").toLowerCase();
+
+  // Idioma do comprador: o locale que mostramos no checkout (metadata.locale,
+  // gravado pelo roteador) > locale da sessão Stripe > país do cartão.
+  const buyerLocale: AppLocale = normalizeLocale(
+    session.metadata?.locale ??
+      (session.locale && session.locale !== "auto" ? session.locale : null) ??
+      (session.customer_details?.address?.country === "BR" ? "pt-BR" : null)
+  );
+
+  if (!email) {
+    await logAudit(supabase, {
+      action: "STRIPE_CHECKOUT_NO_EMAIL",
+      ipAddress,
+      eventId,
+      metadata: { session_id: session.id },
+    });
+    return NextResponse.json({ received: true }, { status: 200 });
+  }
+
+  // ── Limpeza vinda do funil (order_id em metadata/client_reference_id) ──────
+  const orderRef =
+    session.metadata?.order_id ?? session.client_reference_id ?? null;
+  const planMeta = session.metadata?.plan ?? null;
+
+  if (planMeta === "limpeza" || (orderRef && UUID_RE.test(orderRef))) {
+    let limpezaOrderId: string | null = null;
+
+    if (orderRef && UUID_RE.test(orderRef)) {
+      const { data: existing } = await supabase
+        .from("limpeza_orders")
+        .select("id, status")
+        .eq("id", orderRef)
+        .maybeSingle();
+      if (existing) {
+        limpezaOrderId = existing.id;
+        const wasAlreadyPaid = existing.status === "paid";
+        await supabase
+          .from("limpeza_orders")
+          .update({
+            status: "paid",
+            payment_provider: "stripe",
+            payment_id: paymentIntentId ?? session.id,
+            amount_cents: session.amount_total ?? null,
+            currency,
+          })
+          .eq("id", existing.id);
+        if (!wasAlreadyPaid) {
+          await deliverLimpezaOrder(supabase, {
+            orderId: existing.id,
+            baseUrl,
+          });
+        }
+      }
+    }
+
+    // Compra de limpeza sem pedido do funil → cria pedido genérico e entrega.
+    if (!limpezaOrderId && planMeta === "limpeza") {
+      const { data: createdOrder, error: orderErr } = await supabase
+        .from("limpeza_orders")
+        .insert({
+          nome,
+          email,
+          phone,
+          tema: "protecao_espiritual",
+          pergunta: "",
+          locale: buyerLocale,
+          status: "paid",
+          payment_provider: "stripe",
+          payment_id: paymentIntentId ?? session.id,
+          amount_cents: session.amount_total ?? null,
+          currency,
+        })
+        .select("id")
+        .single();
+      if (orderErr || !createdOrder) {
+        console.error(
+          "[Stripe] Falha ao criar pedido de limpeza:",
+          orderErr?.message
+        );
+        return NextResponse.json(
+          { error: "Erro interno ao processar compra" },
+          { status: 500 }
+        );
+      }
+      limpezaOrderId = createdOrder.id;
+      await deliverLimpezaOrder(supabase, { orderId: createdOrder.id, baseUrl });
+    }
+
+    await logAudit(supabase, {
+      action: "STRIPE_CHECKOUT_SESSION_COMPLETED",
+      ipAddress,
+      eventId,
+      metadata: {
+        session_id: session.id,
+        payment_intent: paymentIntentId,
+        plan: "limpeza",
+        limpeza_order_id: limpezaOrderId,
+        locale: buyerLocale,
+        emailDomain: email.split("@")[1] ?? "unknown",
+      },
+    });
+    await sendAdminSaleNotification({
+      plan: "limpeza",
+      email,
+      nome,
+      amountCents: session.amount_total ?? null,
+      currency,
+      provider: "stripe",
+    });
+    return NextResponse.json({ ok: true, plan: "limpeza" });
+  }
+
+  // ── Demais produtos: metadata.plan → env price id ──────────────────────────
+  let planKey: PlanKey | null =
+    planMeta && isValidProduct(planMeta) ? planMeta : null;
+
+  if (!planKey) {
+    // Sessão criada fora do roteador (ex.: Payment Link antigo) — tenta o
+    // price id configurado em env. Valor NUNCA é usado (moedas colidem).
+    let priceId: string | null = null;
+    try {
+      const lineItems = await stripe.checkout.sessions.listLineItems(
+        session.id,
+        { limit: 1 }
+      );
+      priceId = lineItems.data[0]?.price?.id ?? null;
+    } catch {
+      // segue com null
+    }
+    planKey = resolvePlanFromEnv(priceId, "STRIPE_PRICE");
+  }
+
+  if (!planKey) {
+    await logAudit(supabase, {
+      action: "STRIPE_UNKNOWN_PRODUCT",
+      ipAddress,
+      eventId,
+      metadata: {
+        session_id: session.id,
+        amount_total: session.amount_total,
+        currency,
+      },
+    });
+    console.error("[Stripe] Produto não mapeado na sessão", session.id);
+    return NextResponse.json({ ok: true, unmapped: true });
+  }
+
+  const userId = await resolveUserId(supabase, email);
+  if (!userId) {
+    return NextResponse.json(
+      { error: "Erro interno ao processar compra" },
+      { status: 500 }
+    );
+  }
+
+  // Não sobrescrever um nome existente com vazio.
+  const userRow: Record<string, unknown> = { id: userId, email };
+  if (nome) userRow.nome = nome;
+  await supabase.from("users").upsert(userRow, { onConflict: "id" });
+
+  // Assinatura só para basic/premium — compras avulsas não criam registro
+  // em subscriptions (o acesso delas é por crédito de chat).
+  if (PLAN_CONFIG[planKey].isSubscription) {
+    let renovacaoEm = unixToRenovacaoEm(null);
+    if (stripeSubscriptionId) {
+      try {
+        const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+        renovacaoEm = unixToRenovacaoEm(periodEndFromSubscription(sub));
+      } catch (e) {
+        console.warn(
+          "[Stripe] Falha ao recuperar subscription no checkout",
+          e instanceof Error ? e.message : ""
+        );
+      }
+    }
+
+    await supabase.from("subscriptions").upsert(
+      {
+        user_id: userId,
+        status: "active",
+        stripe_customer_id: stripeCustomerId,
+        stripe_subscription_id: stripeSubscriptionId ?? `session_${session.id}`,
+        renovacao_em: renovacaoEm,
+      },
+      { onConflict: "stripe_subscription_id" }
+    );
+  }
+
+  const provision = await provisionPlan(supabase, userId, planKey, {
+    locale: buyerLocale,
+  });
+  if (!provision.ok) {
+    console.error("[Stripe] provisionPlan falhou:", provision.errors);
+    return NextResponse.json(
+      { error: "Erro interno ao provisionar" },
+      { status: 500 }
+    );
+  }
+
+  // E-mail de acesso com magic link, no idioma do comprador (fail-soft).
+  const accessEmail = await sendAccessEmail(supabase, {
+    email,
+    nome,
+    locale: buyerLocale,
+    baseUrl,
+  });
+
+  await logAudit(supabase, {
+    userId,
+    action: "STRIPE_CHECKOUT_SESSION_COMPLETED",
+    ipAddress,
+    eventId,
+    metadata: {
+      session_id: session.id,
+      payment_intent: paymentIntentId,
+      stripe_customer_id: stripeCustomerId,
+      stripe_subscription_id: stripeSubscriptionId,
+      plan: planKey,
+      locale: buyerLocale,
+      access_email_sent: accessEmail.ok,
+      emailDomain: email.split("@")[1] ?? "unknown",
+    },
+  });
+  await sendAdminSaleNotification({
+    plan: planKey,
+    email,
+    nome,
+    amountCents: session.amount_total ?? null,
+    currency,
+    provider: "stripe",
+  });
+
+  return NextResponse.json({ ok: true, plan: planKey });
+}
+
+// ─── Revogação por reembolso/disputa ─────────────────────────────────────────
+// Localiza o que foi entregue pela transação (audit_logs.payment_intent) e
+// desfaz: assinatura → inactive · créditos de chat → estorno · limpeza →
+// pedido marcado como refunded.
+async function revokeByPaymentIntent(
+  supabase: ServiceClient,
+  paymentIntentId: string,
+  action: string,
+  eventId: string,
+  ipAddress: string
+) {
+  const { data: prior } = await supabase
+    .from("audit_logs")
+    .select("user_id, metadata")
+    .eq("action", "STRIPE_CHECKOUT_SESSION_COMPLETED")
+    .filter("metadata->payment_intent", "eq", `"${paymentIntentId}"`)
+    .limit(1)
+    .maybeSingle();
+
+  const meta = (prior?.metadata ?? {}) as Record<string, unknown>;
+  const plan = meta.plan as PlanKey | undefined;
+
+  if (prior?.user_id && plan && PLAN_CONFIG[plan]?.isSubscription) {
+    await supabase
+      .from("subscriptions")
+      .update({ status: "inactive" })
+      .eq("user_id", prior.user_id);
+  }
+
+  if (prior?.user_id && plan && PLAN_CONFIG[plan]?.chatCredits > 0) {
+    const { data: u } = await supabase
+      .from("users")
+      .select("chat_credits_balance")
+      .eq("id", prior.user_id)
+      .maybeSingle();
+    const newBalance = Math.max(
+      0,
+      (u?.chat_credits_balance ?? 0) - PLAN_CONFIG[plan].chatCredits
+    );
+    await supabase
+      .from("users")
+      .update({ chat_credits_balance: newBalance })
+      .eq("id", prior.user_id);
+  }
+
+  await supabase
+    .from("limpeza_orders")
+    .update({ status: "refunded" })
+    .eq("payment_provider", "stripe")
+    .eq("payment_id", paymentIntentId);
+
+  await logAudit(supabase, {
+    userId: prior?.user_id ?? null,
+    action,
+    ipAddress,
+    eventId,
+    metadata: { payment_intent: paymentIntentId, plan: plan ?? null },
+  });
+}
+
 export async function POST(request: NextRequest) {
   const ipAddress =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
 
-  // ── 1. Rate limit por IP (reutiliza o limiter do webhook) ─────────────────
+  // ── 1. Rate limit por IP ──────────────────────────────────────────────────
   const rl = await checkWebhookRateLimit(ipAddress);
   if (!rl.success) {
     return NextResponse.json(
@@ -191,12 +500,10 @@ export async function POST(request: NextRequest) {
   }
 
   // ── 2. Configuração obrigatória ───────────────────────────────────────────
-  if (!STRIPE_SECRET_KEY || !STRIPE_WEBHOOK_SECRET) {
+  const stripe = getStripe();
+  if (!stripe || !STRIPE_WEBHOOK_SECRET) {
     console.error("[Stripe] STRIPE_SECRET_KEY ou STRIPE_WEBHOOK_SECRET ausente");
-    return NextResponse.json(
-      { error: "Webhook não configurado" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Webhook não configurado" }, { status: 500 });
   }
 
   // ── 3. Limitar tamanho do corpo ───────────────────────────────────────────
@@ -208,8 +515,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Payload muito grande" }, { status: 413 });
   }
 
-  // O corpo BRUTO é obrigatório para a verificação de assinatura — não parsear
-  // como JSON antes de validar.
   const rawBody = await request.text();
   if (Buffer.byteLength(rawBody) > MAX_BODY_BYTES) {
     return NextResponse.json({ error: "Payload muito grande" }, { status: 413 });
@@ -221,11 +526,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Assinatura ausente" }, { status: 400 });
   }
 
-  const stripe = getStripe();
   let event: Stripe.Event;
   try {
-    // constructEventAsync usa o SubtleCrypto/Node crypto de forma assíncrona —
-    // funciona tanto no runtime Node quanto em ambientes serverless.
     event = await stripe.webhooks.constructEventAsync(
       rawBody,
       signature,
@@ -241,8 +543,9 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createServiceSupabaseClient();
+  const baseUrl = appBaseUrl(request);
 
-  // ── 5. Idempotência universal (cobre TODOS os eventos) ────────────────────
+  // ── 5. Idempotência universal ─────────────────────────────────────────────
   const alreadyDone = await isEventProcessed(supabase, event.id);
   if (alreadyDone) {
     return NextResponse.json({ message: "Evento já processado" }, { status: 200 });
@@ -254,107 +557,31 @@ export async function POST(request: NextRequest) {
       try {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        const email =
-          session.customer_details?.email ?? session.customer_email ?? null;
-        const nome = session.customer_details?.name ?? "";
-        const stripeCustomerId = idFromExpandable(session.customer);
-        let stripeSubscriptionId = idFromExpandable(session.subscription);
-
-        if (!email) {
-          // Sem e-mail não há como provisionar o acesso. Logamos e retornamos
-          // 200 para o Stripe não reenviar indefinidamente.
+        // Pagamentos assíncronos (boleto etc.): NÃO provisiona até o dinheiro
+        // confirmar — o evento async_payment_succeeded fará isso.
+        if (
+          session.payment_status !== "paid" &&
+          session.payment_status !== "no_payment_required"
+        ) {
           await logAudit(supabase, {
-            action: "STRIPE_CHECKOUT_NO_EMAIL",
+            action: "STRIPE_CHECKOUT_PENDING_PAYMENT",
             ipAddress,
             eventId: event.id,
-            metadata: { session_id: session.id },
+            metadata: {
+              session_id: session.id,
+              payment_status: session.payment_status,
+            },
           });
-          return NextResponse.json({ received: true }, { status: 200 });
+          return NextResponse.json({ received: true, pending: true });
         }
 
-        const userId = await resolveUserId(supabase, email);
-        if (!userId) {
-          return NextResponse.json(
-            { error: "Erro interno ao processar compra" },
-            { status: 500 }
-          );
-        }
-
-        await supabase.from("users").upsert(
-          { id: userId, email, nome: nome.slice(0, 100) },
-          { onConflict: "id" }
-        );
-
-        // Buscar a assinatura no Stripe para obter o fim do período atual.
-        // Em checkout de assinatura o id sempre existe; se por algum motivo
-        // não vier, usamos o fallback de +30 dias.
-        let renovacaoEm = unixToRenovacaoEm(null);
-        if (stripeSubscriptionId) {
-          try {
-            const sub = await stripe.subscriptions.retrieve(
-              stripeSubscriptionId
-            );
-            renovacaoEm = unixToRenovacaoEm(periodEndFromSubscription(sub));
-          } catch (e) {
-            console.warn(
-              "[Stripe] Falha ao recuperar subscription no checkout",
-              e instanceof Error ? e.message : ""
-            );
-          }
-        } else {
-          // Sem subscription (ex.: checkout de pagamento único). Usamos o id da
-          // própria sessão como chave estável para o upsert/idempotência.
-          stripeSubscriptionId = `session_${session.id}`;
-        }
-
-        await supabase.from("subscriptions").upsert(
-          {
-            user_id: userId,
-            status: "active",
-            stripe_customer_id: stripeCustomerId,
-            stripe_subscription_id: stripeSubscriptionId,
-            renovacao_em: renovacaoEm,
-          },
-          { onConflict: "stripe_subscription_id" }
-        );
-
-        // ── Resolver o plano comprado e provisionar créditos ──────────────
-        // Prioridade: price id configurado via env → valor total (centavos).
-        // Buscamos a primeira linha do checkout para obter o price id; se
-        // falhar, usamos session.amount_total. Fallback "basic".
-        let priceId: string | null = null;
-        try {
-          const lineItems = await stripe.checkout.sessions.listLineItems(
-            session.id,
-            { limit: 1 }
-          );
-          priceId = lineItems.data[0]?.price?.id ?? null;
-        } catch (e) {
-          console.warn(
-            "[Stripe] Falha ao listar line items do checkout",
-            e instanceof Error ? e.message : ""
-          );
-        }
-
-        const planKey: PlanKey =
-          resolvePlanFromEnv(priceId, "STRIPE_PRICE") ??
-          resolvePlanFromAmount(session.amount_total) ??
-          "basic";
-
-        await provisionPlan(supabase, userId, planKey);
-
-        await logAudit(supabase, {
-          userId,
-          action: "STRIPE_CHECKOUT_SESSION_COMPLETED",
-          ipAddress,
+        return await handlePaidCheckout({
+          supabase,
+          stripe,
+          session,
           eventId: event.id,
-          metadata: {
-            session_id: session.id,
-            stripe_customer_id: stripeCustomerId,
-            stripe_subscription_id: stripeSubscriptionId,
-            plan: planKey,
-            emailDomain: email.split("@")[1] ?? "unknown",
-          },
+          ipAddress,
+          baseUrl,
         });
       } catch (err) {
         console.error(
@@ -366,6 +593,39 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+    }
+
+    case "checkout.session.async_payment_succeeded": {
+      try {
+        const session = event.data.object as Stripe.Checkout.Session;
+        return await handlePaidCheckout({
+          supabase,
+          stripe,
+          session,
+          eventId: event.id,
+          ipAddress,
+          baseUrl,
+        });
+      } catch (err) {
+        console.error(
+          "[Stripe] Erro em async_payment_succeeded",
+          err instanceof Error ? err.message : ""
+        );
+        return NextResponse.json(
+          { error: "Erro interno ao processar compra" },
+          { status: 500 }
+        );
+      }
+    }
+
+    case "checkout.session.async_payment_failed": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      await logAudit(supabase, {
+        action: "STRIPE_ASYNC_PAYMENT_FAILED",
+        ipAddress,
+        eventId: event.id,
+        metadata: { session_id: session.id },
+      });
       break;
     }
 
@@ -388,7 +648,6 @@ export async function POST(request: NextRequest) {
 
         if (!userId) {
           // Pode acontecer se o invoice chegar antes do checkout.session.
-          // Logamos e retornamos 200; a renovação subsequente corrige o estado.
           await logAudit(supabase, {
             action: "STRIPE_INVOICE_PAID_NO_SUB",
             ipAddress,
@@ -402,7 +661,6 @@ export async function POST(request: NextRequest) {
           break;
         }
 
-        // Fim do período atual a partir da linha do invoice.
         const renovacaoEm = unixToRenovacaoEm(
           invoice.lines?.data?.[0]?.period?.end
         );
@@ -412,17 +670,15 @@ export async function POST(request: NextRequest) {
           .update({ status: "active", renovacao_em: renovacaoEm })
           .eq("user_id", userId);
 
-        // Renovação: reprovisionar créditos conforme o plano pago.
-        // O valor pago (amount_paid, em centavos) identifica o plano; se não
-        // mapear, usamos o plano atual do usuário; por fim, "basic".
+        // Renovação: reprovisiona conforme o plano ATUAL do usuário.
+        // Valor pago não identifica plano (moedas internacionais variam).
         const { data: invoiceUserRow } = await supabase
           .from("users")
           .select("plan")
           .eq("id", userId)
           .maybeSingle();
         const renewalPlan: PlanKey =
-          resolvePlanFromAmount(invoice.amount_paid) ??
-          (invoiceUserRow?.plan === "premium" ? "premium" : "basic");
+          invoiceUserRow?.plan === "premium" ? "premium" : "basic";
 
         await provisionPlan(supabase, userId, renewalPlan);
 
@@ -435,6 +691,7 @@ export async function POST(request: NextRequest) {
             invoice_id: invoice.id,
             stripe_subscription_id: stripeSubscriptionId,
             stripe_customer_id: stripeCustomerId,
+            plan: renewalPlan,
           },
         });
       } catch (err) {
@@ -470,30 +727,21 @@ export async function POST(request: NextRequest) {
             .from("subscriptions")
             .update({ status: "inactive" })
             .eq("user_id", userId);
-
-          await logAudit(supabase, {
-            userId,
-            action: "STRIPE_INVOICE_PAYMENT_FAILED",
-            ipAddress,
-            eventId: event.id,
-            metadata: {
-              invoice_id: invoice.id,
-              stripe_subscription_id: stripeSubscriptionId,
-              stripe_customer_id: stripeCustomerId,
-            },
-          });
-        } else {
-          await logAudit(supabase, {
-            action: "STRIPE_INVOICE_FAILED_NO_SUB",
-            ipAddress,
-            eventId: event.id,
-            metadata: {
-              invoice_id: invoice.id,
-              stripe_subscription_id: stripeSubscriptionId,
-              stripe_customer_id: stripeCustomerId,
-            },
-          });
         }
+
+        await logAudit(supabase, {
+          userId,
+          action: userId
+            ? "STRIPE_INVOICE_PAYMENT_FAILED"
+            : "STRIPE_INVOICE_FAILED_NO_SUB",
+          ipAddress,
+          eventId: event.id,
+          metadata: {
+            invoice_id: invoice.id,
+            stripe_subscription_id: stripeSubscriptionId,
+            stripe_customer_id: stripeCustomerId,
+          },
+        });
       } catch (err) {
         console.error(
           "[Stripe] Erro inesperado em invoice.payment_failed",
@@ -525,28 +773,20 @@ export async function POST(request: NextRequest) {
             .from("subscriptions")
             .update({ status: "cancelled" })
             .eq("user_id", userId);
-
-          await logAudit(supabase, {
-            userId,
-            action: "STRIPE_CUSTOMER_SUBSCRIPTION_DELETED",
-            ipAddress,
-            eventId: event.id,
-            metadata: {
-              stripe_subscription_id: stripeSubscriptionId,
-              stripe_customer_id: stripeCustomerId,
-            },
-          });
-        } else {
-          await logAudit(supabase, {
-            action: "STRIPE_SUB_DELETED_NO_SUB",
-            ipAddress,
-            eventId: event.id,
-            metadata: {
-              stripe_subscription_id: stripeSubscriptionId,
-              stripe_customer_id: stripeCustomerId,
-            },
-          });
         }
+
+        await logAudit(supabase, {
+          userId,
+          action: userId
+            ? "STRIPE_CUSTOMER_SUBSCRIPTION_DELETED"
+            : "STRIPE_SUB_DELETED_NO_SUB",
+          ipAddress,
+          eventId: event.id,
+          metadata: {
+            stripe_subscription_id: stripeSubscriptionId,
+            stripe_customer_id: stripeCustomerId,
+          },
+        });
       } catch (err) {
         console.error(
           "[Stripe] Erro inesperado em customer.subscription.deleted",
@@ -560,10 +800,41 @@ export async function POST(request: NextRequest) {
       break;
     }
 
+    case "charge.refunded": {
+      const charge = event.data.object as Stripe.Charge;
+      const paymentIntentId = idFromExpandable(
+        charge.payment_intent as string | { id: string } | null
+      );
+      if (paymentIntentId) {
+        await revokeByPaymentIntent(
+          supabase,
+          paymentIntentId,
+          "STRIPE_CHARGE_REFUNDED",
+          event.id,
+          ipAddress
+        );
+      }
+      break;
+    }
+
+    case "charge.dispute.created": {
+      const dispute = event.data.object as Stripe.Dispute;
+      const paymentIntentId = idFromExpandable(
+        dispute.payment_intent as string | { id: string } | null
+      );
+      if (paymentIntentId) {
+        await revokeByPaymentIntent(
+          supabase,
+          paymentIntentId,
+          "STRIPE_CHARGE_DISPUTED",
+          event.id,
+          ipAddress
+        );
+      }
+      break;
+    }
+
     default: {
-      // Evento não mapeado — registramos (com idempotência) e retornamos 200
-      // para o Stripe não reenviar. event.type vem do payload já validado pela
-      // assinatura, então é seguro logar.
       await logAudit(supabase, {
         action: "STRIPE_EVENT_UNHANDLED",
         ipAddress,

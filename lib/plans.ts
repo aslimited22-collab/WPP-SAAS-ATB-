@@ -1,46 +1,131 @@
 import type { createServiceSupabaseClient } from "@/lib/supabase";
+import type { AppLocale } from "@/lib/locale";
 
 type ServiceClient = ReturnType<typeof createServiceSupabaseClient>;
 
 // ─── Planos / produtos ────────────────────────────────────────────────────────
 // Cada produto vendido (Kiwify ou Stripe) mapeia para uma destas chaves.
-// O valor armazenado em users.plan é apenas "basic" ou "premium"; produtos
-// avulsos (pergunta3, limpeza) deixam o usuário no plano "basic" mas creditam
-// leituras adicionais.
-export type PlanKey = "basic" | "premium" | "pergunta3" | "limpeza";
+//
+//   basic     → assinatura mensal: 5 leituras WhatsApp/mês + 30 msgs de chat/mês
+//   premium   → assinatura: leituras ilimitadas (999) + 100 msgs de chat/mês
+//   pergunta1/3/7 → compras avulsas de CRÉDITOS DE CHAT (+1/+3/+7 perguntas
+//                   para conversar com a ATB no chat — produto DeepSeek)
+//   limpeza   → Limpeza Espiritual personalizada, entregue via funil /limpeza
+//               (geração OpenAI + e-mail + página /entrega/[orderId])
+//
+// Compras avulsas (pergunta*/limpeza) NÃO criam assinatura nem alteram o plano:
+// o acesso delas é por crédito de chat ou pela página de entrega.
+export type PlanKey =
+  | "basic"
+  | "premium"
+  | "pergunta1"
+  | "pergunta3"
+  | "pergunta7"
+  | "limpeza";
 export type UserPlan = "basic" | "premium";
 
 export interface PlanConfig {
-  // Valor gravado em users.plan
-  userPlan: UserPlan;
-  // Quantidade de leituras a creditar
-  credits: number;
-  // "set" substitui o saldo (assinaturas/renovações);
-  // "add" soma ao saldo existente (compras avulsas).
-  creditMode: "set" | "add";
+  // Valor gravado em users.plan (null = não altera o plano do usuário)
+  userPlan: UserPlan | null;
+  // Assinatura: cria/atualiza registro em subscriptions
+  isSubscription: boolean;
+  // Leituras de tarot via WhatsApp a creditar
+  readingCredits: number;
+  // "set" substitui o saldo (assinaturas/renovações); "add" soma (avulsos)
+  readingCreditMode: "set" | "add";
+  // Créditos de chat avulsos a SOMAR em users.chat_credits_balance
+  chatCredits: number;
 }
 
 export const PLAN_CONFIG: Record<PlanKey, PlanConfig> = {
-  // R$29/mês — 5 leituras por mês
-  basic: { userPlan: "basic", credits: 5, creditMode: "set" },
-  // R$291,65 — leituras ilimitadas (representadas por 999)
-  premium: { userPlan: "premium", credits: 999, creditMode: "set" },
-  // R$19,90 — 3 perguntas avulsas (somadas ao saldo)
-  pergunta3: { userPlan: "basic", credits: 3, creditMode: "add" },
-  // R$100 — 1 leitura especial (somada ao saldo)
-  limpeza: { userPlan: "basic", credits: 1, creditMode: "add" },
+  basic: {
+    userPlan: "basic",
+    isSubscription: true,
+    readingCredits: 5,
+    readingCreditMode: "set",
+    chatCredits: 0,
+  },
+  premium: {
+    userPlan: "premium",
+    isSubscription: true,
+    readingCredits: 999,
+    readingCreditMode: "set",
+    chatCredits: 0,
+  },
+  pergunta1: {
+    userPlan: null,
+    isSubscription: false,
+    readingCredits: 0,
+    readingCreditMode: "add",
+    chatCredits: 1,
+  },
+  pergunta3: {
+    userPlan: null,
+    isSubscription: false,
+    readingCredits: 0,
+    readingCreditMode: "add",
+    chatCredits: 3,
+  },
+  pergunta7: {
+    userPlan: null,
+    isSubscription: false,
+    readingCredits: 0,
+    readingCreditMode: "add",
+    chatCredits: 7,
+  },
+  // A limpeza é entregue pelo funil (orders/readings próprios) — não credita
+  // leituras nem chat; o webhook dispara o pipeline de entrega.
+  limpeza: {
+    userPlan: null,
+    isSubscription: false,
+    readingCredits: 0,
+    readingCreditMode: "add",
+    chatCredits: 0,
+  },
 };
 
-const PLAN_KEYS: PlanKey[] = ["basic", "premium", "pergunta3", "limpeza"];
+const PLAN_KEYS: PlanKey[] = [
+  "basic",
+  "premium",
+  "pergunta1",
+  "pergunta3",
+  "pergunta7",
+  "limpeza",
+];
+
+// ─── Chat com a ATB (DeepSeek) ────────────────────────────────────────────────
+// Cota mensal de mensagens por plano de assinatura. Créditos avulsos
+// (chat_credits_balance) têm prioridade e ignoram a cota.
+export const MESSAGE_LIMITS_MONTH: Record<UserPlan, number> = {
+  basic: 30,
+  premium: 100,
+};
+
+// Intervalo mínimo entre mensagens (anti-flood / contenção de custo)
+export const THROTTLE_SECONDS: Record<UserPlan | "free", number> = {
+  free: 10,
+  basic: 5,
+  premium: 2,
+};
+
+// Chave do mês corrente (ex.: "2026-06") para cota mensal de chat e créditos.
+export function currentMonthKey(): string {
+  return new Date().toISOString().slice(0, 7);
+}
 
 // ─── Resolução de plano a partir do valor pago ────────────────────────────────
-// Mapeia o valor (em CENTAVOS) para um plano. É a fonte da verdade quando não
-// há mapeamento explícito por ID de produto/preço configurado via env.
+// Fallback usado SOMENTE pelo webhook Kiwify (valores em centavos de REAL).
+// O webhook Stripe resolve o produto por metadata.plan (gravado pelo roteador
+// de checkout) — nunca por valor, pois moedas diferentes colidiriam.
 export const AMOUNT_CENTS_TO_PLAN: Record<number, PlanKey> = {
   2900: "basic", // R$29,00
-  29165: "premium", // R$291,65
+  25000: "premium", // R$250,00
+  29165: "premium", // R$291,65 (preço legado)
+  1490: "pergunta1", // R$14,90
   1990: "pergunta3", // R$19,90
+  3990: "pergunta7", // R$39,90
   10000: "limpeza", // R$100,00
+  9700: "limpeza", // R$97,00 (preço alternativo)
 };
 
 // Normaliza um valor que pode vir como número ou string (ex.: "2900", "29.00").
@@ -88,39 +173,81 @@ export function resolvePlanFromEnv(
 }
 
 // ─── Provisionamento de plano e créditos ──────────────────────────────────────
-// Atualiza users.plan e atribui créditos conforme a configuração do plano.
-// A tabela `subscriptions` NÃO é tocada aqui — suas colunas variam por provedor
-// (Kiwify vs Stripe), então cada webhook faz o upsert da subscription.
+// Atualiza users.plan, credita leituras e créditos de chat, e grava o locale
+// do comprador. A tabela `subscriptions` NÃO é tocada aqui — suas colunas
+// variam por provedor (Kiwify vs Stripe), então cada webhook faz o upsert.
+//
+// Retorna { ok, errors } — quem chama decide logar/retornar 500 para o
+// gateway retentar (as operações são idempotentes do lado do banco).
 export async function provisionPlan(
   supabase: ServiceClient,
   userId: string,
-  planKey: PlanKey
-): Promise<void> {
+  planKey: PlanKey,
+  options?: { locale?: AppLocale }
+): Promise<{ ok: boolean; errors: string[] }> {
   const config = PLAN_CONFIG[planKey];
-  const mesReferencia = new Date().toISOString().slice(0, 7);
+  const mesReferencia = currentMonthKey();
+  const errors: string[] = [];
 
-  // 1. Atualizar o plano na tabela users.
-  await supabase.from("users").update({ plan: config.userPlan }).eq("id", userId);
-
-  // 2. Calcular o novo saldo de créditos.
-  let leiturasRestantes = config.credits;
-  if (config.creditMode === "add") {
-    const { data: existing } = await supabase
-      .from("credits")
-      .select("leituras_restantes")
-      .eq("user_id", userId)
-      .maybeSingle();
-    leiturasRestantes = (existing?.leituras_restantes ?? 0) + config.credits;
+  // 1. Atualizar plano e locale na tabela users.
+  const userPatch: Record<string, unknown> = {};
+  if (config.userPlan) userPatch.plan = config.userPlan;
+  if (options?.locale) userPatch.locale = options.locale;
+  if (Object.keys(userPatch).length > 0) {
+    const { error } = await supabase
+      .from("users")
+      .update(userPatch)
+      .eq("id", userId);
+    if (error) errors.push(`users.update: ${error.message}`);
   }
 
-  // 3. Gravar os créditos (upsert por user_id).
-  await supabase.from("credits").upsert(
-    {
-      user_id: userId,
-      leituras_restantes: leiturasRestantes,
-      mes_referencia: mesReferencia,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id" }
-  );
+  // 2. Créditos de leitura (tarot via WhatsApp).
+  if (config.readingCredits > 0) {
+    let leiturasRestantes = config.readingCredits;
+    if (config.readingCreditMode === "add") {
+      const { data: existing } = await supabase
+        .from("credits")
+        .select("leituras_restantes")
+        .eq("user_id", userId)
+        .maybeSingle();
+      leiturasRestantes =
+        (existing?.leituras_restantes ?? 0) + config.readingCredits;
+    }
+
+    const { error } = await supabase.from("credits").upsert(
+      {
+        user_id: userId,
+        leituras_restantes: leiturasRestantes,
+        mes_referencia: mesReferencia,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" }
+    );
+    if (error) errors.push(`credits.upsert: ${error.message}`);
+  }
+
+  // 3. Créditos de chat (perguntas avulsas — sempre somam).
+  if (config.chatCredits > 0) {
+    const { data: userRow, error: selErr } = await supabase
+      .from("users")
+      .select("chat_credits_balance, chat_credits_total_purchased")
+      .eq("id", userId)
+      .maybeSingle();
+    if (selErr) {
+      errors.push(`users.select chat: ${selErr.message}`);
+    } else {
+      const { error } = await supabase
+        .from("users")
+        .update({
+          chat_credits_balance:
+            (userRow?.chat_credits_balance ?? 0) + config.chatCredits,
+          chat_credits_total_purchased:
+            (userRow?.chat_credits_total_purchased ?? 0) + config.chatCredits,
+        })
+        .eq("id", userId);
+      if (error) errors.push(`users.update chat: ${error.message}`);
+    }
+  }
+
+  return { ok: errors.length === 0, errors };
 }

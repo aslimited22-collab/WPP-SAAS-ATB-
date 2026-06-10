@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  createServerSupabaseClient,
-  createServiceSupabaseClient,
-} from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createServiceSupabaseClient } from "@/lib/supabase";
 import { checkRateLimit } from "@/lib/ratelimit";
 
 export async function GET(request: NextRequest) {

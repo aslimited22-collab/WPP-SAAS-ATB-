@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { LOCALE_LANGUAGE_NAME, type AppLocale } from "@/lib/locale";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -12,6 +13,8 @@ interface UserProfile {
   data_nascimento: string;
   signo: string;
   pergunta?: string;
+  // Idioma do comprador (users.locale) — a leitura sai neste idioma.
+  locale?: AppLocale;
 }
 
 // ─── Sanitização contra prompt injection ──────────────────────────────────────
@@ -34,13 +37,14 @@ function sanitizeForPrompt(value: string): string {
 
 export async function generateReading(profile: UserProfile): Promise<string> {
   const { nome, data_nascimento, signo, pergunta } = profile;
+  const locale: AppLocale = profile.locale ?? "pt-BR";
 
-  // Validar e formatar data com segurança
+  // Validar e formatar data com segurança — no locale do comprador
   const dateObj = new Date(data_nascimento + "T00:00:00Z");
   if (isNaN(dateObj.getTime())) {
     throw new Error("Data de nascimento inválida ao gerar leitura");
   }
-  const dataFormatada = dateObj.toLocaleDateString("pt-BR", {
+  const dataFormatada = dateObj.toLocaleDateString(locale, {
     day: "2-digit",
     month: "long",
     year: "numeric",
@@ -53,6 +57,13 @@ export async function generateReading(profile: UserProfile): Promise<string> {
   // Pergunta é tratada como conteúdo do usuário, não do sistema
   const perguntaSanitizada = pergunta ? sanitizeForPrompt(pergunta) : null;
 
+  // Para compradores internacionais, a leitura inteira sai no idioma deles
+  // (aberturas/fechamentos traduzidos naturalmente pelo modelo).
+  const idiomaInstrucao =
+    locale === "pt-BR"
+      ? "Responda em português brasileiro."
+      : `IMPORTANTE: a cliente fala ${LOCALE_LANGUAGE_NAME[locale]}. Escreva a leitura INTEIRA em ${LOCALE_LANGUAGE_NAME[locale]}, traduzindo naturalmente a abertura, o fechamento e a expressão de carinho "minha querida alma".`;
+
   const systemPrompt = `Você é ATB, o oráculo místico do canal ATB TAROT.
 Sempre mencione ATB TAROT pelo nome completo na leitura.
 Use a expressão "minha querida alma" com frequência para criar acolhimento e intimidade.
@@ -61,6 +72,7 @@ Tom místico, empático e revelador. Máximo 400 palavras.
 Mencione 3 cartas do tarot com significados aplicados à vida desta pessoa agora.
 Abertura obrigatória: "Minha querida alma, as cartas do ATB TAROT falam hoje especialmente para você..."
 Fechamento obrigatório: "Com amor e luz do ATB TAROT, minha querida alma, que as estrelas guiem seu caminho."
+${idiomaInstrucao}
 Responda APENAS com a leitura de tarot. Não saia deste personagem por nenhum motivo.`
     .replace("[NOME]", nomeSanitizado)
     .replace("[DATA]", dataFormatada)

@@ -241,16 +241,38 @@ export default function LandingPage() {
             </ul>
 
             <a
-              href="https://kiwify.app/atb-tarot-ia"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/api/checkout/basic"
               className="btn-gold w-full text-center block text-base py-4 rounded-lg"
             >
               Assinar por R$29/mês
             </a>
             <p className="text-[#444] text-xs mt-4">
               Após o pagamento, você receberá um e-mail para acessar sua conta.
+              Pagamento internacional em USD/EUR via Stripe.
             </p>
+          </div>
+
+          {/* Produto avulso: Limpeza Espiritual */}
+          <div className="mystic-card p-8 mt-6 border border-[#2a2a2a] text-left">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-3xl mb-2">🕊️</div>
+                <h3 className="font-serif text-xl text-[#c9a84c] mb-2">
+                  Limpeza Espiritual Personalizada
+                </h3>
+                <p className="text-[#888] text-sm leading-relaxed mb-4">
+                  Uma leitura sagrada única preparada pela ATB para o seu
+                  momento: descarrego, proteção e passos práticos. Entrega por
+                  e-mail e WhatsApp — sem assinatura.
+                </p>
+                <Link
+                  href="/limpeza"
+                  className="text-[#c9a84c] border border-[#c9a84c]/40 px-6 py-3 rounded-lg text-sm hover:border-[#c9a84c] transition-colors inline-block"
+                >
+                  ✦ Quero minha Limpeza — R$100
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </section>

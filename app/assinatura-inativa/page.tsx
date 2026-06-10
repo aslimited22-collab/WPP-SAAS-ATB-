@@ -38,9 +38,7 @@ export default function AssinaturaInativaPage() {
 
         <div className="space-y-4">
           <a
-            href="https://kiwify.app/atb-tarot-ia"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/api/checkout/basic"
             className="btn-gold w-full block py-4 text-base"
           >
             ✦ Reativar Minha Assinatura — R$29/mês

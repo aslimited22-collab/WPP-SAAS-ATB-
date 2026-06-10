@@ -1,92 +1,79 @@
+// ─── Webhook Kiwify (Brasil) ──────────────────────────────────────────────────
+// Formato real da Kiwify (comprovado em produção):
+//   • assinatura = HMAC-SHA1(corpo bruto, KIWIFY_WEBHOOK_TOKEN)
+//   • enviada como query param  ?signature=<hex>
+//
+// Produtos: basic/premium (assinaturas) · pergunta1/3/7 (créditos de chat)
+//           limpeza (funil /limpeza com external_reference, ou compra direta)
+//
+// Após provisionar, envia o e-mail de acesso (Resend, idioma pt-BR) — a
+// promessa "você receberá um e-mail" da página de vendas é cumprida aqui.
+
 import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceSupabaseClient } from "@/lib/supabase";
 import { checkWebhookRateLimit } from "@/lib/ratelimit";
-import { kiwifyWebhookSchema } from "@/lib/validators";
 import {
   provisionPlan,
   resolvePlanFromEnv,
   resolvePlanFromAmount,
   toCents,
+  PLAN_CONFIG,
   type PlanKey,
 } from "@/lib/plans";
+import { deliverLimpezaOrder } from "@/lib/delivery";
+import { sendAccessEmail, sendAdminSaleNotification } from "@/lib/email";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+// Entrega da limpeza gera leitura com IA dentro do webhook — precisa de folga.
+export const maxDuration = 120;
 
 const KIWIFY_WEBHOOK_TOKEN = process.env.KIWIFY_WEBHOOK_TOKEN ?? "";
-
-// Limite de tamanho do corpo: 64 KB (payloads legítimos da Kiwify são <5 KB)
 const MAX_BODY_BYTES = 64 * 1024;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// ─── Comparação timing-safe para strings de tamanho variável ─────────────────
-// Preenche ambos os buffers para o mesmo tamanho antes de comparar,
-// evitando que diferenças de comprimento vazem via timing.
-function timingSafeStringEqual(a: string, b: string): boolean {
-  const aBuf = Buffer.from(a);
-  const bBuf = Buffer.from(b);
-  const maxLen = Math.max(aBuf.length, bBuf.length);
-  const aPadded = Buffer.alloc(maxLen);
-  const bPadded = Buffer.alloc(maxLen);
-  aBuf.copy(aPadded);
-  bBuf.copy(bPadded);
-  // timingSafeEqual garante tempo constante; &&-length evita false-positive em strings de tamanhos diferentes
-  return (
-    timingSafeEqual(aPadded, bPadded) && aBuf.length === bBuf.length
-  );
-}
-
-// ─── Validação de assinatura Kiwify ──────────────────────────────────────────
-// 1. token no payload deve bater com KIWIFY_WEBHOOK_TOKEN (timing-safe)
-// 2. Signature = HMAC-SHA256(KIWIFY_WEBHOOK_TOKEN, order_id)  (timing-safe)
-function verifyKiwifySignature(
-  orderId: string,
-  receivedToken: string,
-  receivedSignature: string
-): boolean {
-  if (!KIWIFY_WEBHOOK_TOKEN) return false;
-
-  // Ambas as comparações são timing-safe para evitar oráculos de timing
-  const tokenOk = timingSafeStringEqual(receivedToken, KIWIFY_WEBHOOK_TOKEN);
-
-  const expected = createHmac("sha256", KIWIFY_WEBHOOK_TOKEN)
-    .update(orderId)
+// ─── Assinatura: HMAC-SHA1 do corpo bruto vs ?signature= ─────────────────────
+function verifyKiwifySignature(rawBody: string, signature: string | null): boolean {
+  if (!signature || !KIWIFY_WEBHOOK_TOKEN) return false;
+  if (!/^[a-f0-9]{20,128}$/i.test(signature)) return false;
+  const expected = createHmac("sha1", KIWIFY_WEBHOOK_TOKEN)
+    .update(rawBody)
     .digest("hex");
-
-  let hmacOk = false;
   try {
-    hmacOk = timingSafeEqual(
-      Buffer.from(expected, "hex"),
-      Buffer.from(receivedSignature, "hex")
-    );
+    const expectedBuf = Buffer.from(expected, "hex");
+    const sigBuf = Buffer.from(signature, "hex");
+    if (expectedBuf.length === 0 || expectedBuf.length !== sigBuf.length) {
+      return false;
+    }
+    return timingSafeEqual(expectedBuf, sigBuf);
   } catch {
-    // Buffer.from com hex inválido lança — já tratado pelo schema Zod (regex /^[a-f0-9]+$/)
     return false;
   }
-
-  return tokenOk && hmacOk;
 }
 
 // ─── Idempotência via audit_logs ──────────────────────────────────────────────
-// Registra o par (event_type, order_id) como processado. Retorna true se
-// o evento JÁ foi processado antes (e portanto deve ser ignorado).
 async function isAlreadyProcessed(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   eventType: string,
   orderId: string
 ): Promise<boolean> {
-  const action = `KIWIFY_${eventType.toUpperCase()}`;
+  const action = `KIWIFY_${eventType.toUpperCase().replace(/[^A-Z_]/g, "_")}`;
   const { data } = await supabase
     .from("audit_logs")
     .select("id")
     .eq("action", action)
     .filter("metadata->order_id", "eq", `"${orderId}"`)
     .limit(1)
-    .single();
+    .maybeSingle();
   return !!data;
 }
 
 async function logAudit(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   params: {
-    userId?: string;
+    userId?: string | null;
     action: string;
     ipAddress?: string;
     metadata?: Record<string, unknown>;
@@ -94,16 +81,53 @@ async function logAudit(
 ) {
   await supabase.from("audit_logs").insert({
     user_id: params.userId ?? null,
-    action: params.action,
+    action: params.action.slice(0, 128),
     ip_address: params.ipAddress ?? null,
     metadata: params.metadata ?? null,
   });
 }
 
+// ─── Resolver/criar usuário no Supabase Auth ─────────────────────────────────
+async function resolveUserId(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  email: string
+): Promise<string | null> {
+  const { data: created, error: createError } =
+    await supabase.auth.admin.createUser({ email, email_confirm: true });
+  if (created?.user) return created.user.id;
+
+  // createUser falhou — provavelmente o e-mail já existe; localizar paginando.
+  let page = 1;
+  const perPage = 200;
+  const MAX_PAGES = 50;
+  while (page <= MAX_PAGES) {
+    const { data: list, error: listError } =
+      await supabase.auth.admin.listUsers({ page, perPage });
+    if (listError) break;
+    const found = list.users.find(
+      (u) => u.email?.toLowerCase() === email.toLowerCase()
+    );
+    if (found) return found.id;
+    if (list.users.length < perPage) break;
+    page++;
+  }
+
+  console.error(
+    "[Kiwify] Falha ao resolver usuário no Supabase Auth",
+    createError?.message ?? ""
+  );
+  return null;
+}
+
+function appBaseUrl(request: NextRequest): string {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin
+  ).replace(/\/$/, "");
+}
+
 export async function POST(request: NextRequest) {
   const ipAddress =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    "unknown";
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
 
   // ── 1. Rate limit por IP ──────────────────────────────────────────────────
   const rl = await checkWebhookRateLimit(ipAddress);
@@ -119,17 +143,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // ── 2. Verificar Content-Type ─────────────────────────────────────────────
-  const contentType = request.headers.get("content-type") ?? "";
-  if (!contentType.includes("application/json")) {
-    return NextResponse.json({ error: "Content-Type inválido" }, { status: 415 });
+  if (!KIWIFY_WEBHOOK_TOKEN) {
+    console.error("[Kiwify] KIWIFY_WEBHOOK_TOKEN ausente");
+    return NextResponse.json({ error: "Webhook não configurado" }, { status: 500 });
   }
 
-  // ── 3. Limitar tamanho do corpo ───────────────────────────────────────────
-  const contentLength = parseInt(
-    request.headers.get("content-length") ?? "0",
-    10
-  );
+  // ── 2. Limitar tamanho do corpo ───────────────────────────────────────────
+  const contentLength = parseInt(request.headers.get("content-length") ?? "0", 10);
   if (contentLength > MAX_BODY_BYTES) {
     return NextResponse.json({ error: "Payload muito grande" }, { status: 413 });
   }
@@ -139,66 +159,113 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Payload muito grande" }, { status: 413 });
   }
 
-  // ── 4. Parsear JSON ───────────────────────────────────────────────────────
-  let body: unknown;
+  // ── 3. Validar assinatura (query param, HMAC-SHA1 do corpo bruto) ─────────
+  const signature = request.nextUrl.searchParams.get("signature");
+  if (!verifyKiwifySignature(rawBody, signature)) {
+    console.warn("[Kiwify] Assinatura inválida de IP:", ipAddress);
+    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
+
+  // ── 4. Parse leniente do payload (a Kiwify varia a estrutura) ─────────────
+  let payload: Record<string, any>;
   try {
-    body = JSON.parse(rawBody);
+    payload = JSON.parse(rawBody);
   } catch {
     return NextResponse.json({ error: "Payload inválido" }, { status: 400 });
   }
 
-  // ── 5. Validar estrutura com Zod (inclui sanitização de comprimentos) ─────
-  const parsed = kiwifyWebhookSchema.safeParse(body);
-  if (!parsed.success) {
-    // Não retornar detalhes do erro de validação para não vazar info estrutural
-    return NextResponse.json(
-      { error: "Payload rejeitado" },
-      { status: 400 }
-    );
+  const order = payload.order ?? payload.Order ?? payload;
+  const event: string = String(
+    order.webhook_event_type ??
+      payload.webhook_event_type ??
+      payload.event ??
+      payload.type ??
+      ""
+  )
+    .toLowerCase()
+    .replace(/\./g, "_");
+
+  const orderId: string = String(
+    order.order_id ?? order.order_ref ?? payload.order_id ?? ""
+  ).slice(0, 128);
+
+  const email: string = String(
+    order.Customer?.email ??
+      order.customer?.email ??
+      payload.Customer?.email ??
+      payload.customer?.email ??
+      payload.email ??
+      ""
+  )
+    .toLowerCase()
+    .trim()
+    .slice(0, 255);
+
+  const nome: string = String(
+    order.Customer?.full_name ??
+      order.Customer?.first_name ??
+      order.customer?.full_name ??
+      order.customer?.first_name ??
+      payload.Customer?.full_name ??
+      ""
+  ).slice(0, 100);
+
+  const phone: string | null =
+    order.Customer?.mobile ??
+    order.Customer?.phone ??
+    order.customer?.mobile ??
+    payload.Customer?.mobile ??
+    null;
+
+  const productId: string | null =
+    order.Product?.product_id ??
+    order.product?.product_id ??
+    payload.Product?.product_id ??
+    null;
+
+  const amountCents = toCents(
+    order.Commissions?.charge_amount ??
+      order.charge_amount ??
+      payload.Commissions?.charge_amount ??
+      payload.charge_amount ??
+      null
+  );
+
+  const subscriberId: string | null =
+    order.subscription_id ??
+    order.subscription?.id ??
+    payload.subscription?.id ??
+    null;
+
+  const renovacaoRaw: string | null =
+    order.subscription?.next_payment ??
+    order.subscription?.current_period_end ??
+    payload.subscription?.current_period_end ??
+    null;
+
+  const externalRef: string | null =
+    order.external_reference ??
+    order.externalReference ??
+    payload.external_reference ??
+    request.nextUrl.searchParams.get("external_reference") ??
+    null;
+
+  if (!event || !orderId) {
+    return NextResponse.json({ error: "Payload rejeitado" }, { status: 400 });
   }
-
-  const {
-    webhook_event_type,
-    order_id,
-    token,
-    Signature,
-    customer,
-    subscription,
-    Product,
-    Commissions,
-  } = parsed.data;
-
-  // ── 6. Validar assinatura HMAC (timing-safe em ambas as comparações) ──────
-  if (!verifyKiwifySignature(order_id, token, Signature)) {
-    // Log silencioso — não informar ao caller o motivo exato
-    console.warn("[Kiwify] Assinatura inválida de IP:", ipAddress);
-    return NextResponse.json(
-      { error: "Não autorizado" },
-      { status: 401 }
-    );
-  }
-
-  const email = customer?.email;
-  const nome = customer?.name ?? "";
-  const transactionId = order_id;
-  const subscriberId = subscription?.id ?? null;
 
   const supabase = createServiceSupabaseClient();
+  const baseUrl = appBaseUrl(request);
 
-  // ── 7. Idempotência universal (cobre TODOS os eventos) ────────────────────
-  const alreadyDone = await isAlreadyProcessed(
-    supabase,
-    webhook_event_type,
-    transactionId
-  );
-  if (alreadyDone) {
+  // ── 5. Idempotência ───────────────────────────────────────────────────────
+  if (await isAlreadyProcessed(supabase, event, orderId)) {
     return NextResponse.json({ message: "Evento já processado" }, { status: 200 });
   }
 
-  // ── 8. Processar evento ───────────────────────────────────────────────────
-  switch (webhook_event_type) {
+  // ── 6. Processar evento ───────────────────────────────────────────────────
+  switch (event) {
     case "order_approved": {
-      if (!email) {
+      if (!email || !EMAIL_RE.test(email)) {
         return NextResponse.json(
           { error: "E-mail do comprador ausente" },
           { status: 400 }
@@ -206,106 +273,209 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        // ── Resolver o usuário no Supabase Auth ───────────────────────────
-        // O SDK não expõe getUserByEmail. Tentamos criar o usuário primeiro;
-        // se o e-mail já existir, localizamos via listUsers (paginado).
-        let userId: string;
-        const { data: created, error: createError } =
-          await supabase.auth.admin.createUser({
-            email,
-            email_confirm: true,
-          });
+        // ── 6a. Limpeza vinda do funil /limpeza (external_reference UUID) ──
+        if (externalRef && UUID_RE.test(externalRef)) {
+          const { data: limpezaOrder } = await supabase
+            .from("limpeza_orders")
+            .select("id, status")
+            .eq("id", externalRef)
+            .maybeSingle();
 
-        if (created?.user) {
-          userId = created.user.id;
-        } else {
-          // createUser falhou — provavelmente o e-mail já está registrado.
-          // Procurar o usuário existente percorrendo as páginas.
-          let found:
-            | Awaited<
-                ReturnType<typeof supabase.auth.admin.listUsers>
-              >["data"]["users"][number]
-            | undefined;
-          let page = 1;
-          const perPage = 200;
-          // Limite de segurança para não iterar indefinidamente
-          const MAX_PAGES = 50;
-          while (page <= MAX_PAGES) {
-            const { data: list, error: listError } =
-              await supabase.auth.admin.listUsers({ page, perPage });
-            if (listError) break;
-            found = list.users.find(
-              (u) => u.email?.toLowerCase() === email.toLowerCase()
-            );
-            if (found || list.users.length < perPage) break;
-            page++;
+          if (limpezaOrder) {
+            const wasAlreadyPaid = limpezaOrder.status === "paid";
+            await supabase
+              .from("limpeza_orders")
+              .update({
+                status: "paid",
+                payment_provider: "kiwify",
+                payment_id: orderId,
+                amount_cents: amountCents,
+                currency: "brl",
+              })
+              .eq("id", limpezaOrder.id);
+
+            if (!wasAlreadyPaid) {
+              await deliverLimpezaOrder(supabase, {
+                orderId: limpezaOrder.id,
+                baseUrl,
+              });
+            }
+
+            await logAudit(supabase, {
+              action: "KIWIFY_ORDER_APPROVED",
+              ipAddress,
+              metadata: {
+                order_id: orderId,
+                plan: "limpeza",
+                limpeza_order_id: limpezaOrder.id,
+                emailDomain: email.split("@")[1] ?? "unknown",
+              },
+            });
+            await sendAdminSaleNotification({
+              plan: "limpeza",
+              email,
+              nome,
+              amountCents,
+              currency: "brl",
+              provider: "kiwify",
+            });
+            return NextResponse.json({ ok: true, plan: "limpeza" });
           }
+        }
 
-          if (!found) {
-            // Não foi possível criar nem localizar o usuário
+        // ── 6b. Resolver o produto comprado ─────────────────────────────────
+        const planKey: PlanKey | null =
+          resolvePlanFromEnv(productId, "KIWIFY_PRODUCT") ??
+          resolvePlanFromAmount(amountCents);
+
+        if (!planKey) {
+          // Produto desconhecido — registra para reconciliação manual e
+          // responde 200 (a Kiwify não tem o que retentar aqui).
+          await logAudit(supabase, {
+            action: "KIWIFY_UNKNOWN_PRODUCT",
+            ipAddress,
+            metadata: {
+              order_id: orderId,
+              product_id: productId,
+              amount_cents: amountCents,
+            },
+          });
+          console.error("[Kiwify] Produto não mapeado:", productId, amountCents);
+          return NextResponse.json({ ok: true, unmapped: true });
+        }
+
+        // ── 6c. Limpeza comprada DIRETO na Kiwify (sem passar pelo funil):
+        // cria um pedido genérico e entrega mesmo assim.
+        if (planKey === "limpeza") {
+          const { data: createdOrder, error: orderErr } = await supabase
+            .from("limpeza_orders")
+            .insert({
+              nome,
+              email,
+              phone,
+              tema: "protecao_espiritual",
+              pergunta: "",
+              locale: "pt-BR",
+              status: "paid",
+              payment_provider: "kiwify",
+              payment_id: orderId,
+              amount_cents: amountCents,
+              currency: "brl",
+            })
+            .select("id")
+            .single();
+
+          if (orderErr || !createdOrder) {
             console.error(
-              "[Kiwify] Falha ao resolver usuário no Supabase Auth",
-              createError?.message ?? ""
+              "[Kiwify] Falha ao criar pedido de limpeza:",
+              orderErr?.message
             );
             return NextResponse.json(
               { error: "Erro interno ao processar compra" },
               { status: 500 }
             );
           }
-          userId = found.id;
+
+          await deliverLimpezaOrder(supabase, {
+            orderId: createdOrder.id,
+            baseUrl,
+          });
+
+          await logAudit(supabase, {
+            action: "KIWIFY_ORDER_APPROVED",
+            ipAddress,
+            metadata: {
+              order_id: orderId,
+              plan: "limpeza",
+              limpeza_order_id: createdOrder.id,
+              emailDomain: email.split("@")[1] ?? "unknown",
+            },
+          });
+          await sendAdminSaleNotification({
+            plan: "limpeza",
+            email,
+            nome,
+            amountCents,
+            currency: "brl",
+            provider: "kiwify",
+          });
+          return NextResponse.json({ ok: true, plan: "limpeza" });
         }
 
-        await supabase.from("users").upsert(
-          { id: userId, email, nome: nome.slice(0, 100) },
-          { onConflict: "id" }
-        );
+        // ── 6d. Assinaturas e perguntas avulsas → conta + créditos ──────────
+        const userId = await resolveUserId(supabase, email);
+        if (!userId) {
+          return NextResponse.json(
+            { error: "Erro interno ao processar compra" },
+            { status: 500 }
+          );
+        }
 
-        // Validar data de renovação antes de usar (vem do payload externo)
-        const rawRenovacao = subscription?.current_period_end;
-        const renovacaoDate = rawRenovacao ? new Date(rawRenovacao) : null;
-        const renovacaoEm =
-          renovacaoDate && !isNaN(renovacaoDate.getTime())
-            ? renovacaoDate.toISOString()
-            : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        // Não sobrescrever um nome existente com vazio.
+        const userRow: Record<string, unknown> = { id: userId, email };
+        if (nome) userRow.nome = nome;
+        await supabase.from("users").upsert(userRow, { onConflict: "id" });
 
-        await supabase.from("subscriptions").upsert(
-          {
-            user_id: userId,
-            status: "active",
-            kiwify_subscriber_id: subscriberId,
-            kiwify_transaction_id: transactionId,
-            renovacao_em: renovacaoEm,
-          },
-          { onConflict: "kiwify_transaction_id" }
-        );
+        // Assinatura só para basic/premium.
+        if (PLAN_CONFIG[planKey].isSubscription) {
+          const renovacaoDate = renovacaoRaw ? new Date(renovacaoRaw) : null;
+          const renovacaoEm =
+            renovacaoDate && !isNaN(renovacaoDate.getTime())
+              ? renovacaoDate.toISOString()
+              : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-        // ── Resolver o plano comprado e provisionar créditos ──────────────
-        // Prioridade: ID de produto configurado via env → valor pago (centavos).
-        // Fallback "basic" preserva o comportamento histórico (5 leituras).
-        const amountCents = toCents(Commissions?.charge_amount);
-        const planKey: PlanKey =
-          resolvePlanFromEnv(Product?.product_id, "KIWIFY_PRODUCT") ??
-          resolvePlanFromAmount(amountCents) ??
-          "basic";
+          await supabase.from("subscriptions").upsert(
+            {
+              user_id: userId,
+              status: "active",
+              kiwify_subscriber_id: subscriberId,
+              kiwify_transaction_id: orderId,
+              renovacao_em: renovacaoEm,
+            },
+            { onConflict: "kiwify_transaction_id" }
+          );
+        }
 
-        await provisionPlan(supabase, userId, planKey);
+        const provision = await provisionPlan(supabase, userId, planKey, {
+          locale: "pt-BR",
+        });
+        if (!provision.ok) {
+          console.error("[Kiwify] provisionPlan falhou:", provision.errors);
+          return NextResponse.json(
+            { error: "Erro interno ao provisionar" },
+            { status: 500 }
+          );
+        }
+
+        // E-mail de acesso com magic link (fail-soft).
+        const accessEmail = await sendAccessEmail(supabase, {
+          email,
+          nome,
+          locale: "pt-BR",
+          baseUrl,
+        });
 
         await logAudit(supabase, {
           userId,
           action: "KIWIFY_ORDER_APPROVED",
           ipAddress,
-          // Não logar email completo — apenas domínio para diagnóstico
           metadata: {
-            order_id: transactionId,
+            order_id: orderId,
             subscriberId,
             plan: planKey,
+            access_email_sent: accessEmail.ok,
             emailDomain: email.split("@")[1] ?? "unknown",
           },
         });
+        await sendAdminSaleNotification({
+          plan: planKey,
+          email,
+          nome,
+          amountCents,
+          currency: "brl",
+          provider: "kiwify",
+        });
       } catch (err) {
-        // Nenhum erro inesperado deve derrubar o webhook inteiro.
-        // Retornar 500 sinaliza à Kiwify para reenviar (a idempotência
-        // garante que um reprocessamento não duplica dados).
         console.error(
           "[Kiwify] Erro inesperado ao processar order_approved",
           err instanceof Error ? err.message : ""
@@ -326,7 +496,7 @@ export async function POST(request: NextRequest) {
           .eq("kiwify_subscriber_id", subscriberId)
           .order("created_at", { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (sub) {
           await supabase
@@ -338,7 +508,7 @@ export async function POST(request: NextRequest) {
             userId: sub.user_id,
             action: "KIWIFY_SUBSCRIPTION_CANCELED",
             ipAddress,
-            metadata: { order_id: transactionId, subscriberId },
+            metadata: { order_id: orderId, subscriberId },
           });
         }
       }
@@ -346,25 +516,65 @@ export async function POST(request: NextRequest) {
     }
 
     case "order_refunded": {
+      // Revoga conforme o que foi entregue nesta transação.
+      const { data: prior } = await supabase
+        .from("audit_logs")
+        .select("user_id, metadata")
+        .eq("action", "KIWIFY_ORDER_APPROVED")
+        .filter("metadata->order_id", "eq", `"${orderId}"`)
+        .limit(1)
+        .maybeSingle();
+
+      const refundedPlan = (prior?.metadata as Record<string, unknown> | null)
+        ?.plan as PlanKey | undefined;
+
+      // Assinatura paga nesta transação → inativa.
       const { data: sub } = await supabase
         .from("subscriptions")
         .select("user_id")
-        .eq("kiwify_transaction_id", transactionId)
-        .single();
-
+        .eq("kiwify_transaction_id", orderId)
+        .maybeSingle();
       if (sub) {
         await supabase
           .from("subscriptions")
           .update({ status: "inactive" })
-          .eq("user_id", sub.user_id);
-
-        await logAudit(supabase, {
-          userId: sub.user_id,
-          action: "KIWIFY_ORDER_REFUNDED",
-          ipAddress,
-          metadata: { order_id: transactionId },
-        });
+          .eq("kiwify_transaction_id", orderId);
       }
+
+      // Créditos de chat avulsos → estorna (sem ficar negativo).
+      if (
+        prior?.user_id &&
+        refundedPlan &&
+        PLAN_CONFIG[refundedPlan]?.chatCredits > 0
+      ) {
+        const { data: u } = await supabase
+          .from("users")
+          .select("chat_credits_balance")
+          .eq("id", prior.user_id)
+          .maybeSingle();
+        const newBalance = Math.max(
+          0,
+          (u?.chat_credits_balance ?? 0) - PLAN_CONFIG[refundedPlan].chatCredits
+        );
+        await supabase
+          .from("users")
+          .update({ chat_credits_balance: newBalance })
+          .eq("id", prior.user_id);
+      }
+
+      // Limpeza → marca o pedido como reembolsado.
+      await supabase
+        .from("limpeza_orders")
+        .update({ status: "refunded" })
+        .eq("payment_provider", "kiwify")
+        .eq("payment_id", orderId);
+
+      await logAudit(supabase, {
+        userId: prior?.user_id ?? sub?.user_id ?? null,
+        action: "KIWIFY_ORDER_REFUNDED",
+        ipAddress,
+        metadata: { order_id: orderId, plan: refundedPlan ?? null },
+      });
       break;
     }
 
@@ -376,11 +586,10 @@ export async function POST(request: NextRequest) {
           .eq("kiwify_subscriber_id", subscriberId)
           .order("created_at", { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (sub) {
-          const rawRenovacao = subscription?.current_period_end;
-          const renovacaoDate = rawRenovacao ? new Date(rawRenovacao) : null;
+          const renovacaoDate = renovacaoRaw ? new Date(renovacaoRaw) : null;
           const renovacaoEm =
             renovacaoDate && !isNaN(renovacaoDate.getTime())
               ? renovacaoDate.toISOString()
@@ -391,8 +600,6 @@ export async function POST(request: NextRequest) {
             .update({ status: "active", renovacao_em: renovacaoEm })
             .eq("user_id", sub.user_id);
 
-          // Reprovisionar créditos conforme o plano atual do usuário
-          // (basic → 5, premium → 999). Default "basic" se ausente.
           const { data: userRow } = await supabase
             .from("users")
             .select("plan")
@@ -406,7 +613,7 @@ export async function POST(request: NextRequest) {
             userId: sub.user_id,
             action: "KIWIFY_SUBSCRIPTION_REACTIVATED",
             ipAddress,
-            metadata: { order_id: transactionId, subscriberId },
+            metadata: { order_id: orderId, subscriberId },
           });
         }
       }
@@ -414,13 +621,10 @@ export async function POST(request: NextRequest) {
     }
 
     default: {
-      // Evento não mapeado — logar e retornar 200 para Kiwify não retentar.
-      // webhook_event_type já foi validado pelo schema (regex /^[a-z_]+$/)
-      // então é seguro usar em strings de log.
       await logAudit(supabase, {
-        action: `KIWIFY_EVENT_UNHANDLED`,
+        action: "KIWIFY_EVENT_UNHANDLED",
         ipAddress,
-        metadata: { webhook_event_type, order_id: transactionId },
+        metadata: { webhook_event_type: event.slice(0, 64), order_id: orderId },
       });
       break;
     }

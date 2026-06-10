@@ -3,14 +3,13 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createBrowserSupabaseClient } from "@/lib/supabase";
 import { loginSchema, type LoginInput } from "@/lib/validators";
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [status, setStatus] = useState<"idle" | "loading" | "sent" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -61,8 +60,6 @@ export default function LoginPage() {
 
     setStatus("sent");
   }
-
-  const nextPath = searchParams.get("next") ?? "/dashboard";
 
   return (
     <main className="min-h-screen bg-mystic-gradient stars-bg flex items-center justify-center px-6">

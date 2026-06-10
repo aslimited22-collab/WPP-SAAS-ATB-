@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  createServerSupabaseClient,
-  createServiceSupabaseClient,
-} from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createServiceSupabaseClient } from "@/lib/supabase";
 import { generateReading } from "@/lib/claude";
+import { normalizeLocale } from "@/lib/locale";
 import { sendWhatsApp } from "@/lib/zapi";
 import { checkRateLimit, checkReadingRateLimit } from "@/lib/ratelimit";
 import { readingRequestSchema } from "@/lib/validators";
@@ -145,10 +144,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Buscar perfil
+  // Buscar perfil (locale define o idioma da leitura)
   const { data: userProfile } = await supabase
     .from("users")
-    .select("nome, data_nascimento, signo, whatsapp")
+    .select("nome, data_nascimento, signo, whatsapp, locale")
     .eq("id", userId)
     .single();
 
@@ -205,6 +204,7 @@ export async function POST(request: NextRequest) {
       data_nascimento: userProfile.data_nascimento,
       signo: userProfile.signo,
       pergunta,
+      locale: normalizeLocale(userProfile.locale),
     });
   } catch (err) {
     // Leitura falhou — estornar o crédito decrementado

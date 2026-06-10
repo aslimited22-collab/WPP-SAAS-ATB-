@@ -6,9 +6,13 @@ const PUBLIC_ROUTES = [
   "/",
   "/login",
   "/obrigado",
+  "/limpeza",
+  "/entrega",
   "/api/webhooks/kiwify",
   "/api/webhooks/stripe",
   "/api/auth",
+  "/api/checkout",
+  "/api/limpeza",
 ];
 
 // Métodos que alteram estado — exigem verificação de Origin
@@ -129,11 +133,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // ── Rotas que exigem assinatura ativa ─────────────────────────────────────
-  const needsActiveSubscription =
-    pathname.startsWith("/dashboard") || pathname.startsWith("/api/readings");
+  // ── Rotas que exigem acesso pago ──────────────────────────────────────────
+  // /api/readings: exige assinatura ATIVA (leituras de tarot são do plano).
+  // /dashboard:    assinatura ativa OU créditos de chat avulsos (pergunta1/3/7)
+  //                — quem comprou créditos usa o chat sem assinar.
+  const needsSubscription = pathname.startsWith("/api/readings");
+  const needsDashboardAccess = pathname.startsWith("/dashboard");
 
-  if (needsActiveSubscription) {
+  if (needsSubscription || needsDashboardAccess) {
     const { data: subscription } = await supabase
       .from("subscriptions")
       .select("status")
@@ -142,19 +149,30 @@ export async function middleware(request: NextRequest) {
       .limit(1)
       .single();
 
-    if (!subscription || subscription.status !== "active") {
-      if (isApiRoute) {
-        return NextResponse.json(
-          {
-            error:
-              "Assinatura inativa. Assine o ATB TAROT IA para acessar este recurso.",
-          },
-          { status: 403 }
+    const hasActiveSubscription = subscription?.status === "active";
+
+    if (needsSubscription && !hasActiveSubscription) {
+      return NextResponse.json(
+        {
+          error:
+            "Assinatura inativa. Assine o ATB TAROT IA para acessar este recurso.",
+        },
+        { status: 403 }
+      );
+    }
+
+    if (needsDashboardAccess && !hasActiveSubscription) {
+      const { data: userRow } = await supabase
+        .from("users")
+        .select("chat_credits_balance")
+        .eq("id", user.id)
+        .single();
+
+      if ((userRow?.chat_credits_balance ?? 0) <= 0) {
+        return NextResponse.redirect(
+          new URL("/assinatura-inativa", request.url)
         );
       }
-      return NextResponse.redirect(
-        new URL("/assinatura-inativa", request.url)
-      );
     }
   }
 

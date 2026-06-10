@@ -34,7 +34,13 @@ interface Credits {
   mes_referencia: string | null;
 }
 
-type TabType = "leitura" | "guia" | "perfil" | "historico";
+type TabType = "leitura" | "chat" | "guia" | "perfil" | "historico";
+
+interface ChatMessage {
+  id?: string;
+  role: "user" | "assistant";
+  content: string;
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -55,6 +61,13 @@ export default function DashboardPage() {
   const [guiaResult, setGuiaResult] = useState<string | null>(null);
   const [guiaError, setGuiaError] = useState<string | null>(null);
   const [guiaCategoria, setGuiaCategoria] = useState<CategoriaGuia | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatSending, setChatSending] = useState(false);
+  const [chatRemaining, setChatRemaining] = useState<number | null>(null);
+  const [chatUsingCredits, setChatUsingCredits] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [chatLoaded, setChatLoaded] = useState(false);
 
   const {
     register,
@@ -219,6 +232,91 @@ export default function DashboardPage() {
     }
   }
 
+  const loadChat = useCallback(async () => {
+    try {
+      const res = await fetch("/api/chat");
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        messages?: ChatMessage[];
+        remaining?: number;
+        usingCredits?: boolean;
+      };
+      setChatMessages(data.messages ?? []);
+      setChatRemaining(data.remaining ?? 0);
+      setChatUsingCredits(!!data.usingCredits);
+      setChatLoaded(true);
+    } catch {
+      // silencioso — a aba mostra estado vazio
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "chat" && !chatLoaded) {
+      loadChat();
+    }
+  }, [activeTab, chatLoaded, loadChat]);
+
+  async function handleSendChat() {
+    const message = chatInput.trim();
+    if (!message || chatSending) return;
+
+    setChatSending(true);
+    setChatError(null);
+    setChatInput("");
+    setChatMessages((prev) => [...prev, { role: "user", content: message }]);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        setChatError(data?.error ?? "Erro ao falar com a ATB. Tente novamente.");
+        // remove a mensagem otimista
+        setChatMessages((prev) => prev.slice(0, -1));
+        return;
+      }
+
+      // Streaming da resposta
+      setChatMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+      const reader = res.body?.getReader();
+      if (reader) {
+        const decoder = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          if (chunk) {
+            setChatMessages((prev) => {
+              const next = [...prev];
+              const last = next[next.length - 1];
+              if (last?.role === "assistant") {
+                next[next.length - 1] = {
+                  ...last,
+                  content: last.content + chunk,
+                };
+              }
+              return next;
+            });
+          }
+        }
+      }
+
+      setChatRemaining((prev) =>
+        typeof prev === "number" ? Math.max(0, prev - 1) : prev
+      );
+    } catch {
+      setChatError("Erro de conexão. Verifique sua internet e tente novamente.");
+    } finally {
+      setChatSending(false);
+    }
+  }
+
   async function handleLogout() {
     const supabase = createBrowserSupabaseClient();
     await supabase.auth.signOut();
@@ -316,6 +414,7 @@ export default function DashboardPage() {
           {(
             [
               { id: "leitura", label: "✦ Solicitar Leitura" },
+              { id: "chat", label: "💬 Chat com ATB" },
               { id: "guia", label: "🌿 Guia de Vícios" },
               { id: "historico", label: "Histórico" },
               { id: "perfil", label: "Meu Perfil" },
@@ -452,6 +551,127 @@ export default function DashboardPage() {
                   <p className="text-red-400 text-sm">{readingError}</p>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB: CHAT COM ATB ──────────────────────────────────────────── */}
+        {activeTab === "chat" && (
+          <div className="animate-fade-in">
+            <div className="mystic-card p-6 sm:p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="font-serif text-2xl text-[#c9a84c]">
+                    💬 Chat com ATB
+                  </h2>
+                  <p className="text-[#666] text-sm mt-1">
+                    Converse ao vivo com a ATB e receba os sinais dos guias.
+                  </p>
+                </div>
+                {chatRemaining !== null && (
+                  <div className="text-center">
+                    <div className="text-2xl font-serif gold-gradient-text font-bold">
+                      {chatRemaining}
+                    </div>
+                    <div className="text-[#555] text-xs">
+                      {chatUsingCredits ? "créditos" : "msgs no mês"}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Mensagens */}
+              <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg p-4 h-96 overflow-y-auto mb-4 space-y-4">
+                {chatMessages.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-center">
+                    <div>
+                      <div className="text-4xl mb-3 opacity-40">🔮</div>
+                      <p className="text-[#555] text-sm">
+                        Envie sua primeira mensagem para a ATB.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  chatMessages.map((m, i) => (
+                    <div
+                      key={m.id ?? i}
+                      className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[85%] rounded-lg px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                          m.role === "user"
+                            ? "bg-[#c9a84c]/15 border border-[#c9a84c]/30 text-[#e8e0d0]"
+                            : "bg-[#1a0a2e]/60 border border-[#2a2a2a] text-[#e8e0d0]/90 font-serif italic"
+                        }`}
+                      >
+                        {m.content ||
+                          (chatSending && i === chatMessages.length - 1
+                            ? "✦ ATB está recebendo os sinais..."
+                            : "")}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {chatError && (
+                <div className="bg-red-900/20 border border-red-800/40 rounded-lg p-3 mb-4">
+                  <p className="text-red-400 text-sm">{chatError}</p>
+                </div>
+              )}
+
+              {chatRemaining === 0 && (
+                <div className="bg-[#c9a84c]/10 border border-[#c9a84c]/30 rounded-lg p-4 mb-4 text-center">
+                  <p className="text-[#c9a84c] text-sm mb-3">
+                    Você não tem mensagens disponíveis. Compre perguntas avulsas
+                    para continuar conversando com a ATB:
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                    <a
+                      href="/api/checkout/pergunta1"
+                      className="text-xs border border-[#c9a84c]/40 text-[#c9a84c] px-4 py-2 rounded-lg hover:border-[#c9a84c] transition-colors"
+                    >
+                      1 pergunta
+                    </a>
+                    <a
+                      href="/api/checkout/pergunta3"
+                      className="text-xs border border-[#c9a84c]/40 text-[#c9a84c] px-4 py-2 rounded-lg hover:border-[#c9a84c] transition-colors"
+                    >
+                      3 perguntas
+                    </a>
+                    <a
+                      href="/api/checkout/pergunta7"
+                      className="text-xs btn-gold px-4 py-2 rounded-lg"
+                    >
+                      7 perguntas
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {/* Input */}
+              <div className="flex gap-3">
+                <textarea
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value.slice(0, 1500))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendChat();
+                    }
+                  }}
+                  placeholder="Escreva sua mensagem para a ATB..."
+                  className="input-mystic resize-none h-14 flex-1"
+                  disabled={chatSending || chatRemaining === 0}
+                />
+                <button
+                  onClick={handleSendChat}
+                  disabled={chatSending || !chatInput.trim() || chatRemaining === 0}
+                  className="btn-gold px-6 rounded-lg text-sm"
+                >
+                  {chatSending ? "..." : "Enviar"}
+                </button>
+              </div>
             </div>
           </div>
         )}
