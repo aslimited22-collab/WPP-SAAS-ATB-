@@ -480,7 +480,7 @@ export default function LandingPage() {
 
             <div className="flex flex-col gap-8">
               {/* Perguntas avulsas */}
-              <div className="mystic-card flex-1 overflow-hidden">
+              <div className="mystic-card overflow-hidden">
                 <Image
                   src="/images/chat-atb.webp"
                   alt=""
@@ -520,7 +520,7 @@ export default function LandingPage() {
               </div>
 
               {/* Limpeza */}
-              <div className="mystic-card flex-1 overflow-hidden">
+              <div className="mystic-card overflow-hidden">
                 <Image
                   src="/images/limpeza.webp"
                   alt=""
