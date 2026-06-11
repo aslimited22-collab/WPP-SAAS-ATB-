@@ -219,7 +219,18 @@ export async function POST(request: NextRequest) {
   }
 
   const order = payload.order ?? payload.Order ?? payload;
-  const event: string = String(
+  // A Kiwify usa nomes em inglês (order_approved) E em português
+  // (compra_aprovada, conforme os valores do painel de webhooks) dependendo
+  // do contexto — normalizamos tudo para os nomes em inglês.
+  const EVENT_ALIASES: Record<string, string> = {
+    compra_aprovada: "order_approved",
+    compra_reembolsada: "order_refunded",
+    estorno: "order_refunded",
+    assinatura_cancelada: "subscription_canceled",
+    assinatura_renovada: "subscription_renewed",
+    assinatura_atrasada: "subscription_late",
+  };
+  const rawEvent: string = String(
     order.webhook_event_type ??
       payload.webhook_event_type ??
       payload.event ??
@@ -228,6 +239,7 @@ export async function POST(request: NextRequest) {
   )
     .toLowerCase()
     .replace(/\./g, "_");
+  const event = EVENT_ALIASES[rawEvent] ?? rawEvent;
 
   const orderId: string = String(
     order.order_id ?? order.order_ref ?? payload.order_id ?? ""
@@ -540,6 +552,35 @@ export async function POST(request: NextRequest) {
           { error: "Erro interno ao processar compra" },
           { status: 500 }
         );
+      }
+      break;
+    }
+
+    // Assinatura atrasada (pagamento da renovação falhou): suspende o acesso
+    // até a Kiwify confirmar a renovação (subscription_renewed reativa).
+    case "subscription_late": {
+      if (subscriberId) {
+        const { data: sub } = await supabase
+          .from("subscriptions")
+          .select("user_id")
+          .eq("kiwify_subscriber_id", subscriberId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (sub) {
+          await supabase
+            .from("subscriptions")
+            .update({ status: "inactive" })
+            .eq("user_id", sub.user_id);
+
+          await logAudit(supabase, {
+            userId: sub.user_id,
+            action: "KIWIFY_SUBSCRIPTION_LATE",
+            ipAddress,
+            metadata: { order_id: orderId, subscriberId },
+          });
+        }
       }
       break;
     }
