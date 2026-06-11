@@ -166,7 +166,7 @@ export const limpezaOrderSchema = z.object({
     .transform(stripControlChars)
     .optional()
     .transform((v) => (v ?? "").trim()),
-  locale: z.enum(["pt-BR", "en", "es"]).default("pt-BR"),
+  locale: z.enum(["pt-BR", "en", "es", "de", "it"]).default("pt-BR"),
 });
 
 export type LimpezaOrderInput = z.infer<typeof limpezaOrderSchema>;

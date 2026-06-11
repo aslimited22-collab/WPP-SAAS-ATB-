@@ -59,6 +59,26 @@ export const THEME_LABELS: Record<AppLocale, Record<LimpezaTheme, string>> = {
     dinheiro_trabalho: "Dinero y trabajo",
     tristeza_coracao: "Tristeza en el corazón",
   },
+  de: {
+    energia_pesada: "Schwere Energie",
+    inveja: "Neid",
+    amor_travado: "Blockierte Liebe",
+    caminhos_fechados: "Verschlossene Wege",
+    separacao: "Trennung",
+    protecao_espiritual: "Spiritueller Schutz",
+    dinheiro_trabalho: "Geld und Arbeit",
+    tristeza_coracao: "Trauer im Herzen",
+  },
+  it: {
+    energia_pesada: "Energia pesante",
+    inveja: "Invidia",
+    amor_travado: "Amore bloccato",
+    caminhos_fechados: "Strade chiuse",
+    separacao: "Separazione",
+    protecao_espiritual: "Protezione spirituale",
+    dinheiro_trabalho: "Denaro e lavoro",
+    tristeza_coracao: "Tristezza nel cuore",
+  },
 };
 
 export const SIGN_LABELS: Record<AppLocale, Record<LimpezaSign, string>> = {
@@ -76,6 +96,16 @@ export const SIGN_LABELS: Record<AppLocale, Record<LimpezaSign, string>> = {
     aries: "Aries", touro: "Tauro", gemeos: "Géminis", cancer: "Cáncer",
     leao: "Leo", virgem: "Virgo", libra: "Libra", escorpiao: "Escorpio",
     sagitario: "Sagitario", capricornio: "Capricornio", aquario: "Acuario", peixes: "Piscis",
+  },
+  de: {
+    aries: "Widder", touro: "Stier", gemeos: "Zwillinge", cancer: "Krebs",
+    leao: "Löwe", virgem: "Jungfrau", libra: "Waage", escorpiao: "Skorpion",
+    sagitario: "Schütze", capricornio: "Steinbock", aquario: "Wassermann", peixes: "Fische",
+  },
+  it: {
+    aries: "Ariete", touro: "Toro", gemeos: "Gemelli", cancer: "Cancro",
+    leao: "Leone", virgem: "Vergine", libra: "Bilancia", escorpiao: "Scorpione",
+    sagitario: "Sagittario", capricornio: "Capricorno", aquario: "Acquario", peixes: "Pesci",
   },
 };
 
@@ -105,6 +135,16 @@ const FALLBACK_STEPS: Record<AppLocale, string[]> = {
     "Enciende una vela blanca en un lugar seguro y respira hondo tres veces.",
     "Di en voz alta, desde el corazón, lo que necesita ser limpiado.",
     "Bebe un vaso de agua con intención de paz y descansa.",
+  ],
+  de: [
+    "Zünde an einem sicheren Ort eine weiße Kerze an und atme dreimal tief durch.",
+    "Sprich laut und von Herzen aus, was gereinigt werden soll.",
+    "Trinke ein Glas Wasser mit der Absicht des Friedens und ruhe dich aus.",
+  ],
+  it: [
+    "Accendi una candela bianca in un luogo sicuro e fai tre respiri profondi.",
+    "Di' ad alta voce, con il cuore, ciò che deve essere purificato.",
+    "Bevi un bicchiere d'acqua con intenzione di pace e riposa.",
   ],
 };
 

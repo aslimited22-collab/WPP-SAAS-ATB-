@@ -1,6 +1,6 @@
 "use client";
 
-// Página de vendas global — trilíngue (PT/EN/ES) e desenhada para o público
+// Página de vendas global — multilíngue (PT/EN/ES/DE/IT) e desenhada para o público
 // 60+: letras grandes, frases curtas, passos numerados e botões enormes.
 // O checkout passa pelo roteador /api/checkout/[plan]: Brasil → Kiwify,
 // resto do mundo → Stripe na moeda local.
@@ -205,6 +205,118 @@ const DICT: Record<
     ],
     disclaimer:
       "Las lecturas de ATB TAROT IA son de entretenimiento y reflexión. No sustituyen el consejo profesional.",
+  },
+  de: {
+    enter: "Anmelden",
+    heroTag: "✦ Das Orakel, das deine Sprache spricht ✦",
+    heroSubtitle: "Mystische, ganz persönliche Legungen",
+    heroText:
+      "ATB deutet die Zeichen des Schicksals ganz besonders für dich, liebe Seele. Du erhältst deine Legung per WhatsApp und kannst jederzeit mit ATB sprechen — direkt von hier aus.",
+    ctaMain: "✦ Jetzt beginnen",
+    howTitle: "Ganz einfach — so geht's",
+    steps: [
+      {
+        title: "Wählen und bezahlen",
+        desc: "Tippe auf den goldenen Knopf und zahle mit deiner Karte. Schnell und sicher.",
+      },
+      {
+        title: "E-Mail öffnen",
+        desc: "Du bekommst eine E-Mail mit einem goldenen Knopf. Tippe darauf — und schon bist du drin.",
+      },
+      {
+        title: "Deine Legung erhalten",
+        desc: "Sprich mit ATB oder bitte um deine Legung. Sie antwortet sofort, in deiner Sprache.",
+      },
+    ],
+    productsTitle: "Wähle, was dein Herz braucht",
+    productsSubtitle: "Bezahle bequem in Euro — sicher über Stripe",
+    planTitle: "Monatsplan",
+    planPrice: "8 €",
+    planPer: "pro Monat · jederzeit kündbar",
+    planBenefits: [
+      "5 Tarot-Legungen pro Monat per WhatsApp",
+      "30 Gespräche mit ATB pro Monat",
+      "Verlauf all deiner Legungen",
+      "Alles in deiner Sprache",
+    ],
+    planCta: "Abonnieren für 8 €/Monat",
+    planNote:
+      "Nach der Zahlung erhältst du eine E-Mail mit deinem Zugangsknopf.",
+    perguntasTitle: "Einzelne Fragen",
+    perguntasDesc:
+      "Ohne Abo. Kaufe Fragen und sprich mit ATB, wann immer du möchtest.",
+    pergunta1: "1 Frage — 2,80 €",
+    pergunta3: "3 Fragen — 3,80 €",
+    pergunta7: "7 Fragen — 7,50 €",
+    limpezaTitle: "Persönliche spirituelle Reinigung",
+    limpezaDesc:
+      "Eine einzigartige heilige Legung, die ATB für deinen Moment vorbereitet: Reinigung, Schutz und praktische Schritte. Kommt per E-Mail und WhatsApp.",
+    limpezaCta: "✦ Ich möchte meine Reinigung — 18 €",
+    trustTitle: "Kaufe mit ruhigem Herzen",
+    trust: [
+      "100 % sichere Zahlung (Stripe)",
+      "Zugang in wenigen Minuten per E-Mail",
+      "Betreuung in deiner Sprache",
+      "Abo jederzeit kündbar",
+    ],
+    disclaimer:
+      "Die Legungen von ATB TAROT IA dienen der Unterhaltung und Besinnung. Sie ersetzen keine professionelle Beratung.",
+  },
+  it: {
+    enter: "Accedi",
+    heroTag: "✦ L'Oracolo che Parla la Tua Lingua ✦",
+    heroSubtitle: "Letture mistiche e personalizzate",
+    heroText:
+      "ATB interpreta i segni del destino apposta per te, anima cara. Ricevi la tua lettura su WhatsApp e parla con ATB in qualsiasi momento, direttamente da qui.",
+    ctaMain: "✦ Inizia Ora",
+    howTitle: "Facile da Usare — Ecco Come",
+    steps: [
+      {
+        title: "Scegli e paga",
+        desc: "Tocca il pulsante dorato e paga con la tua carta. Veloce e sicuro.",
+      },
+      {
+        title: "Apri la tua email",
+        desc: "Riceverai un'email con un pulsante dorato. Toccalo e sei già dentro.",
+      },
+      {
+        title: "Ricevi la tua lettura",
+        desc: "Parla con ATB o chiedi la tua lettura. Lei risponde subito, nella tua lingua.",
+      },
+    ],
+    productsTitle: "Scegli ciò di cui il tuo cuore ha bisogno",
+    productsSubtitle: "Paga comodamente in euro — al sicuro con Stripe",
+    planTitle: "Piano Mensile",
+    planPrice: "8 €",
+    planPer: "al mese · disdici quando vuoi",
+    planBenefits: [
+      "5 letture di tarocchi al mese su WhatsApp",
+      "30 conversazioni con ATB al mese",
+      "Cronologia di tutte le tue letture",
+      "Tutto nella tua lingua",
+    ],
+    planCta: "Abbonati a 8 €/mese",
+    planNote:
+      "Dopo il pagamento riceverai un'email con il tuo pulsante di accesso.",
+    perguntasTitle: "Domande Singole",
+    perguntasDesc:
+      "Senza abbonamento. Compra le domande e parla con ATB quando vuoi.",
+    pergunta1: "1 domanda — 2,80 €",
+    pergunta3: "3 domande — 3,80 €",
+    pergunta7: "7 domande — 7,50 €",
+    limpezaTitle: "Pulizia Spirituale Personalizzata",
+    limpezaDesc:
+      "Una lettura sacra unica preparata da ATB per il tuo momento: purificazione, protezione e passi pratici. Arriva via email e WhatsApp.",
+    limpezaCta: "✦ Voglio la mia Pulizia — 18 €",
+    trustTitle: "Compra in tutta serenità",
+    trust: [
+      "Pagamento 100% sicuro (Stripe)",
+      "Accesso inviato via email in pochi minuti",
+      "Assistenza nella tua lingua",
+      "Disdici l'abbonamento quando vuoi",
+    ],
+    disclaimer:
+      "Le letture di ATB TAROT IA hanno scopo di intrattenimento e riflessione. Non sostituiscono una consulenza professionale.",
   },
 };
 

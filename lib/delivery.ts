@@ -33,6 +33,10 @@ const WHATSAPP_COPY: Record<AppLocale, (nome: string, link: string) => string> =
     `Hello, ${nome}! This is ATB TAROT AI. 🕊️ Your personalized Spiritual Cleansing is ready. Access it now: ${link}`,
   es: (nome, link) =>
     `Hola, ${nome}! Somos ATB TAROT IA. 🕊️ Tu Limpieza Espiritual personalizada está lista. Accede ahora: ${link}`,
+  de: (nome, link) =>
+    `Hallo, ${nome}! Hier ist ATB TAROT IA. 🕊️ Deine persönliche Spirituelle Reinigung ist bereit. Öffne sie jetzt: ${link}`,
+  it: (nome, link) =>
+    `Ciao, ${nome}! Siamo ATB TAROT IA. 🕊️ La tua Pulizia Spirituale personalizzata è pronta. Accedi ora: ${link}`,
 };
 
 export async function deliverLimpezaOrder(

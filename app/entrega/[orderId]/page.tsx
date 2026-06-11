@@ -51,6 +51,27 @@ const COPY: Record<
       "ATB está preparando tu lectura sagrada. Actualiza esta página en unos instantes.",
     stepsTitle: "Tus pasos",
   },
+  de: {
+    notFound:
+      "Bestellung nicht gefunden. Bitte prüfe den Link in deiner E-Mail.",
+    pendingTitle: "Wir warten auf die Bestätigung deiner Zahlung",
+    pendingBody:
+      "Sobald deine Zahlung bestätigt ist, wird deine Reinigung vorbereitet und du erhältst eine E-Mail. Diese Seite aktualisiert sich von selbst.",
+    preparingTitle: "Deine Reinigung wird vorbereitet",
+    preparingBody:
+      "ATB bereitet deine heilige Lesung vor. Lade diese Seite in wenigen Augenblicken neu.",
+    stepsTitle: "Deine Schritte",
+  },
+  it: {
+    notFound: "Ordine non trovato. Controlla il link nella tua e-mail.",
+    pendingTitle: "In attesa della conferma del pagamento",
+    pendingBody:
+      "Appena il tuo pagamento sarà confermato, la tua Pulizia verrà preparata e riceverai un'e-mail. Questa pagina si aggiorna da sola.",
+    preparingTitle: "La tua Pulizia è in preparazione",
+    preparingBody:
+      "ATB sta preparando la tua lettura sacra. Aggiorna questa pagina tra qualche istante.",
+    stepsTitle: "I tuoi passi",
+  },
 };
 
 function Shell({

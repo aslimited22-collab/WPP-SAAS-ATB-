@@ -83,6 +83,42 @@ const DICT: Record<
     footerLink: "Suscríbete por $9/mes",
     footerBrand: "ATB TAROT IA — Portal de Lecturas Místicas",
   },
+  de: {
+    tagline: "Melde dich mit deiner E-Mail an und betritt dein mystisches Portal",
+    sentTitle: "Schau in dein E-Mail-Postfach",
+    sentText:
+      "Ein magischer Link wurde an deine E-Mail gesendet, meine liebe Seele. Klicke darauf, um dein Konto zu öffnen.",
+    sentNotReceived: "Nichts angekommen? Schau in deinen Spam-Ordner oder",
+    sentTryAgain: "versuche es noch einmal",
+    formTitle: "Portal betreten",
+    emailLabel: "E-Mail",
+    emailPlaceholder: "deine@email.de",
+    errorRate: "Zu viele Versuche. Bitte warte ein paar Minuten und versuche es erneut.",
+    errorGeneric: "Der Zugangslink konnte nicht gesendet werden. Bitte versuche es noch einmal.",
+    sending: "Dein magischer Link ist unterwegs...",
+    submit: "✦ Zugangslink senden",
+    footerQuestion: "Noch kein Abo?",
+    footerLink: "Abonniere für 8 €/Monat",
+    footerBrand: "ATB TAROT IA — Portal für mystische Lesungen",
+  },
+  it: {
+    tagline: "Entra con la tua email per accedere al tuo portale mistico",
+    sentTitle: "Controlla la tua email",
+    sentText:
+      "Un link magico è stato inviato alla tua email, anima cara. Cliccaci sopra per accedere al tuo account.",
+    sentNotReceived: "Non l'hai ricevuto? Controlla la cartella spam oppure",
+    sentTryAgain: "riprova",
+    formTitle: "Entra nel Portale",
+    emailLabel: "Email",
+    emailPlaceholder: "tua@email.it",
+    errorRate: "Troppi tentativi. Aspetta qualche minuto e riprova.",
+    errorGeneric: "Non siamo riusciti a inviare il link di accesso. Riprova.",
+    sending: "Invio del link magico...",
+    submit: "✦ Invia Link di Accesso",
+    footerQuestion: "Non sei ancora abbonato?",
+    footerLink: "Abbonati a 8 €/mese",
+    footerBrand: "ATB TAROT IA — Portale di Letture Mistiche",
+  },
 };
 
 export default function LoginPage() {

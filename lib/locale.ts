@@ -4,24 +4,28 @@
 // no momento da compra (Stripe session.locale / Kiwify → pt-BR) e usado em
 // toda comunicação posterior.
 
-export type AppLocale = "pt-BR" | "en" | "es";
+export type AppLocale = "pt-BR" | "en" | "es" | "de" | "it";
 
-export const APP_LOCALES: AppLocale[] = ["pt-BR", "en", "es"];
+export const APP_LOCALES: AppLocale[] = ["pt-BR", "en", "es", "de", "it"];
 
 // Nome do idioma por extenso — usado nos prompts de IA ("responda em …").
 export const LOCALE_LANGUAGE_NAME: Record<AppLocale, string> = {
   "pt-BR": "português brasileiro",
   en: "English",
   es: "español",
+  de: "Deutsch (alemão)",
+  it: "italiano",
 };
 
-// Normaliza qualquer tag de idioma (pt, pt-BR, es-MX, en-US, de, fr…)
+// Normaliza qualquer tag de idioma (pt, pt-BR, es-MX, en-US, de, it…)
 // para um AppLocale. Vazio/nulo → pt-BR (mercado principal).
 export function normalizeLocale(raw: string | null | undefined): AppLocale {
   const lc = (raw ?? "").trim().toLowerCase();
   if (!lc) return "pt-BR";
   if (lc.startsWith("pt")) return "pt-BR";
   if (lc.startsWith("es")) return "es";
+  if (lc.startsWith("de")) return "de";
+  if (lc.startsWith("it")) return "it";
   return "en";
 }
 

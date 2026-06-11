@@ -3,7 +3,7 @@
 //   Stripe (intl): success_url inclui ?lang=<locale do comprador>
 import Link from "next/link";
 
-type Locale = "pt-BR" | "en" | "es";
+type Locale = "pt-BR" | "en" | "es" | "de" | "it";
 
 const COPY: Record<
   Locale,
@@ -30,12 +30,28 @@ const COPY: Record<
       "Recibirás un correo con el enlace de acceso a tu portal. Revisa tu bandeja de entrada (y el spam, por si acaso).",
     cta: "✦ Acceder a Mi Portal",
   },
+  de: {
+    title: "Willkommen auf deiner Reise",
+    body1: "Meine liebe Seele, die Sterne feiern deine Ankunft bei",
+    body2:
+      "Du erhältst eine E-Mail mit dem Zugangslink zu deinem Portal. Schau in deinen Posteingang (und sicherheitshalber auch in den Spam-Ordner).",
+    cta: "✦ Mein Portal öffnen",
+  },
+  it: {
+    title: "Benvenuta nel Viaggio",
+    body1: "Anima cara, le stelle celebrano il tuo arrivo ad",
+    body2:
+      "Riceverai un'e-mail con il link di accesso al tuo portale. Controlla la tua casella di posta (e anche lo spam, per sicurezza).",
+    cta: "✦ Accedi al Mio Portale",
+  },
 };
 
 function normalize(lang: string | undefined): Locale {
   const lc = (lang ?? "").toLowerCase();
   if (lc.startsWith("en")) return "en";
   if (lc.startsWith("es")) return "es";
+  if (lc.startsWith("de")) return "de";
+  if (lc.startsWith("it")) return "it";
   return "pt-BR";
 }
 

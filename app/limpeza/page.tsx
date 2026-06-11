@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
-type Locale = "pt-BR" | "en" | "es";
+type Locale = "pt-BR" | "en" | "es" | "de" | "it";
 
 const TEMAS = [
   "energia_pesada",
@@ -155,6 +155,78 @@ const DICT: Record<Locale, {
       sagitario: "Sagitario", capricornio: "Capricornio", aquario: "Acuario", peixes: "Piscis",
     },
   },
+  de: {
+    title: "Persönliche spirituelle Reinigung",
+    subtitle:
+      "ATB bereitet eine einzigartige spirituelle Reinigung für dich vor: eine Deutung deines Moments, eine reinigende Botschaft, Schutz und praktische Schritte. Zustellung per E-Mail und WhatsApp.",
+    price: "18 € · einmalige Zahlung",
+    nome: "Dein Name",
+    email: "Deine E-Mail",
+    phone: "WhatsApp (optional)",
+    phoneHint: "Mit Ländervorwahl, z. B. +49 151 23456789",
+    signo: "Dein Sternzeichen (optional)",
+    signoNone: "Möchte ich nicht angeben",
+    tema: "Was soll gereinigt werden?",
+    pergunta: "Erzähle uns deine Situation (optional)",
+    perguntaPlaceholder:
+      "Schreibe mit deinen eigenen Worten, was du gerade fühlst oder erlebst...",
+    submit: "✦ Meine Reinigung erhalten — 18 €",
+    submitting: "Deine Bestellung wird vorbereitet...",
+    error: "Deine Bestellung konnte nicht erstellt werden. Bitte versuche es noch einmal.",
+    disclaimer:
+      "Spiritueller, symbolischer Unterhaltungsinhalt. Kein Ersatz für professionelle Hilfe.",
+    temas: {
+      energia_pesada: "Schwere Energie",
+      inveja: "Neid",
+      amor_travado: "Blockierte Liebe",
+      caminhos_fechados: "Verschlossene Wege",
+      separacao: "Trennung",
+      protecao_espiritual: "Spiritueller Schutz",
+      dinheiro_trabalho: "Geld und Arbeit",
+      tristeza_coracao: "Trauer im Herzen",
+    },
+    signos: {
+      aries: "Widder", touro: "Stier", gemeos: "Zwillinge", cancer: "Krebs",
+      leao: "Löwe", virgem: "Jungfrau", libra: "Waage", escorpiao: "Skorpion",
+      sagitario: "Schütze", capricornio: "Steinbock", aquario: "Wassermann", peixes: "Fische",
+    },
+  },
+  it: {
+    title: "Pulizia Spirituale Personalizzata",
+    subtitle:
+      "ATB prepara una pulizia spirituale unica per te: una lettura del tuo momento, un messaggio di purificazione, protezione e passi pratici. Consegna via email e WhatsApp.",
+    price: "18 € · pagamento unico",
+    nome: "Il tuo nome",
+    email: "La tua email",
+    phone: "WhatsApp (facoltativo)",
+    phoneHint: "Con prefisso internazionale, es.: +39 333 1234567",
+    signo: "Il tuo segno (facoltativo)",
+    signoNone: "Preferisco non dirlo",
+    tema: "Cosa deve essere purificato?",
+    pergunta: "Raccontaci la tua situazione (facoltativo)",
+    perguntaPlaceholder:
+      "Scrivi con parole tue ciò che stai sentendo o vivendo...",
+    submit: "✦ Ricevere la mia Pulizia — 18 €",
+    submitting: "Stiamo preparando il tuo ordine...",
+    error: "Non è stato possibile creare il tuo ordine. Riprova.",
+    disclaimer:
+      "Contenuto spirituale, simbolico e di intrattenimento. Non sostituisce l'aiuto professionale.",
+    temas: {
+      energia_pesada: "Energia pesante",
+      inveja: "Invidia",
+      amor_travado: "Amore bloccato",
+      caminhos_fechados: "Strade chiuse",
+      separacao: "Separazione",
+      protecao_espiritual: "Protezione spirituale",
+      dinheiro_trabalho: "Denaro e lavoro",
+      tristeza_coracao: "Tristezza nel cuore",
+    },
+    signos: {
+      aries: "Ariete", touro: "Toro", gemeos: "Gemelli", cancer: "Cancro",
+      leao: "Leone", virgem: "Vergine", libra: "Bilancia", escorpiao: "Scorpione",
+      sagitario: "Sagittario", capricornio: "Capricorno", aquario: "Acquario", peixes: "Pesci",
+    },
+  },
 };
 
 function detectLocale(): Locale {
@@ -162,6 +234,8 @@ function detectLocale(): Locale {
   const lang = (navigator.language ?? "").toLowerCase();
   if (lang.startsWith("pt")) return "pt-BR";
   if (lang.startsWith("es")) return "es";
+  if (lang.startsWith("de")) return "de";
+  if (lang.startsWith("it")) return "it";
   return "en";
 }
 
@@ -218,7 +292,7 @@ export default function LimpezaPage() {
             <span className="text-[#e8e0d0] ml-1">TAROT IA</span>
           </Link>
           <div className="flex gap-2 text-xs">
-            {(["pt-BR", "en", "es"] as Locale[]).map((l) => (
+            {(["pt-BR", "en", "es", "de", "it"] as Locale[]).map((l) => (
               <button
                 key={l}
                 onClick={() => setLocale(l)}

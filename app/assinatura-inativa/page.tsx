@@ -55,6 +55,30 @@ const DICT: Record<
     justSubscribed:
       "Si acabas de suscribirte y estás viendo esta pantalla, espera unos minutos y actualiza la página.",
   },
+  de: {
+    title: "Das Portal ist verschlossen",
+    msg1Before: "Meine liebe Seele, die Karten zeigen, dass deine Reise mit ",
+    brand: "ATB TAROT IA",
+    msg1After: " gerade pausiert.",
+    msg2: "Um deine mystischen Lesungen zu öffnen und ATBs Stimme zu hören, brauchst du ein aktives Abo.",
+    reactivate: "✦ Mein Abo reaktivieren — 8 €/Monat",
+    goDashboard: "Zum Dashboard",
+    logout: "Abmelden",
+    justSubscribed:
+      "Wenn du gerade erst abonniert hast und diese Seite siehst, warte bitte ein paar Minuten und lade die Seite neu.",
+  },
+  it: {
+    title: "Il Portale è Chiuso",
+    msg1Before: "Anima cara, le carte rivelano che il tuo cammino con ",
+    brand: "ATB TAROT IA",
+    msg1After: " è in pausa per ora.",
+    msg2: "Per accedere alle tue letture mistiche e ascoltare la voce di ATB, hai bisogno di un abbonamento attivo.",
+    reactivate: "✦ Riattiva il Mio Abbonamento — 8 €/mese",
+    goDashboard: "Vai alla Dashboard",
+    logout: "Esci",
+    justSubscribed:
+      "Se ti sei appena abbonato e vedi questa schermata, aspetta qualche minuto e aggiorna la pagina.",
+  },
 };
 
 export default function AssinaturaInativaPage() {

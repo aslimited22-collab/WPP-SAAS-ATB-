@@ -12,7 +12,7 @@
 
 ALTER TABLE public.users
   ADD COLUMN IF NOT EXISTS locale TEXT DEFAULT 'pt-BR'
-    CHECK (locale IN ('pt-BR', 'en', 'es'));
+    CHECK (locale IN ('pt-BR', 'en', 'es', 'de', 'it'));
 
 ALTER TABLE public.users
   ADD COLUMN IF NOT EXISTS chat_credits_balance INT NOT NULL DEFAULT 0
@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS public.limpeza_orders (
     'separacao','protecao_espiritual','dinheiro_trabalho','tristeza_coracao'
   )),
   pergunta TEXT CHECK (char_length(pergunta) <= 600),
-  locale TEXT NOT NULL DEFAULT 'pt-BR' CHECK (locale IN ('pt-BR', 'en', 'es')),
+  locale TEXT NOT NULL DEFAULT 'pt-BR' CHECK (locale IN ('pt-BR', 'en', 'es', 'de', 'it')),
   status TEXT NOT NULL DEFAULT 'pending'
     CHECK (status IN ('pending', 'paid', 'refunded', 'cancelled')),
   payment_provider TEXT CHECK (payment_provider IN ('kiwify', 'stripe')),

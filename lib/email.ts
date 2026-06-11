@@ -129,6 +129,24 @@ const ACCESS_COPY: Record<
     fallback: (url) =>
       `Si el botón expira, ve a <a href="${url}" style="color:#c9a84c;">la página de inicio de sesión</a> y pide un nuevo enlace mágico con este mismo correo.`,
   },
+  de: {
+    subject: "🔮 Dein Zugang zu ATB TAROT IA ist bereit",
+    title: "Deine Reise hat begonnen",
+    body: (n) =>
+      `Hallo, <strong style="color:#c9a84c;">${n}</strong>!<br>Dein Kauf wurde bestätigt und dein Portal ist geöffnet. Tippe auf den goldenen Knopf, um jetzt einzutreten:`,
+    cta: "✦ Mein Portal öffnen",
+    fallback: (url) =>
+      `Wenn der Knopf abgelaufen ist, gehe zur <a href="${url}" style="color:#c9a84c;">Anmeldeseite</a> und fordere mit derselben E-Mail-Adresse einen neuen magischen Link an.`,
+  },
+  it: {
+    subject: "🔮 Il tuo accesso ad ATB TAROT IA è pronto",
+    title: "Il tuo viaggio è iniziato",
+    body: (n) =>
+      `Ciao, <strong style="color:#c9a84c;">${n}</strong>!<br>Il tuo acquisto è stato confermato e il tuo portale è aperto. Tocca il pulsante dorato per entrare subito:`,
+    cta: "✦ Accedi al mio portale",
+    fallback: (url) =>
+      `Se il pulsante è scaduto, vai alla <a href="${url}" style="color:#c9a84c;">pagina di accesso</a> e richiedi un nuovo link magico con questa stessa e-mail.`,
+  },
 };
 
 export async function sendAccessEmail(
@@ -209,6 +227,22 @@ const LIMPEZA_COPY: Record<
       `Hola, <strong style="color:#c9a84c;">${n}</strong>!<br>ATB preparó tu Limpieza Espiritual personalizada. Toca el botón para recibirla ahora:`,
     cta: "✨ Abrir mi Limpieza",
     note: "Guarda este correo — el enlace es tu acceso permanente a tu limpieza.",
+  },
+  de: {
+    subject: "🕊️ Deine Spirituelle Reinigung ist bereit",
+    title: "Deine Reinigung ist bereit",
+    body: (n) =>
+      `Hallo, <strong style="color:#c9a84c;">${n}</strong>!<br>ATB hat deine persönliche Spirituelle Reinigung vorbereitet. Tippe auf den Knopf, um sie jetzt zu empfangen:`,
+    cta: "✨ Meine Reinigung öffnen",
+    note: "Bewahre diese E-Mail auf — der Link ist dein dauerhafter Zugang zu deiner Reinigung.",
+  },
+  it: {
+    subject: "🕊️ La tua Pulizia Spirituale è pronta",
+    title: "La tua Pulizia è pronta",
+    body: (n) =>
+      `Ciao, <strong style="color:#c9a84c;">${n}</strong>!<br>ATB ha preparato la tua Pulizia Spirituale personalizzata. Tocca il pulsante per riceverla subito:`,
+    cta: "✨ Apri la mia Pulizia",
+    note: "Conserva questa e-mail — il link è il tuo accesso permanente alla tua pulizia.",
   },
 };
 

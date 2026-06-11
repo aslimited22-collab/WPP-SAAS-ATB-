@@ -118,6 +118,22 @@ export function productDisplayName(product: ProductId, locale: AppLocale): strin
       pergunta7: "ATB — 7 Preguntas Espirituales",
       limpeza: "ATB — Limpieza Espiritual Personalizada",
     },
+    de: {
+      basic: "ATB TAROT IA — Monatsplan",
+      premium: "ATB TAROT IA — Premium",
+      pergunta1: "ATB — 1 Spirituelle Frage",
+      pergunta3: "ATB — 3 Spirituelle Fragen",
+      pergunta7: "ATB — 7 Spirituelle Fragen",
+      limpeza: "ATB — Persönliche Spirituelle Reinigung",
+    },
+    it: {
+      basic: "ATB TAROT IA — Piano Mensile",
+      premium: "ATB TAROT IA — Premium",
+      pergunta1: "ATB — 1 Domanda Spirituale",
+      pergunta3: "ATB — 3 Domande Spirituali",
+      pergunta7: "ATB — 7 Domande Spirituali",
+      limpeza: "ATB — Pulizia Spirituale Personalizzata",
+    },
   };
   return names[locale][product];
 }
