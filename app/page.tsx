@@ -444,9 +444,36 @@ export default function LandingPage() {
             <p className="text-[#b5ab97] text-base mb-10">{t.productsSubtitle}</p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8 items-stretch">
+          {/* ── DESTAQUE: Limpeza Espiritual (produto principal, no topo) ── */}
+          <div className="mystic-card overflow-hidden border-2 border-[#c9a84c]/50 shadow-gold mb-8 md:flex">
+            <Image
+              src="/images/limpeza.webp"
+              alt=""
+              width={1536}
+              height={1024}
+              priority
+              className="w-full md:w-1/2 h-52 md:h-auto object-cover"
+            />
+            <div className="p-8 md:p-10 flex-1 flex flex-col justify-center">
+              <div className="text-4xl mb-3">🕊️</div>
+              <h3 className="font-serif text-3xl text-[#c9a84c] mb-3">
+                {t.limpezaTitle}
+              </h3>
+              <p className="text-[#c2b9a4] text-base leading-relaxed mb-7">
+                {t.limpezaDesc}
+              </p>
+              <Link
+                href="/limpeza"
+                className="btn-gold inline-block px-8 py-5 rounded-xl text-lg w-full text-center"
+              >
+                {t.limpezaCta}
+              </Link>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8 items-start">
             {/* Assinatura */}
-            <div className="mystic-card p-9 border-2 border-[#c9a84c]/40 shadow-gold flex flex-col">
+            <div className="mystic-card p-9 border-2 border-[#c9a84c]/40 flex flex-col">
               <div className="text-[#b5ab97] text-base mb-2">{t.planTitle}</div>
               <div className="font-serif text-6xl gold-gradient-text font-bold mb-1">
                 {t.planPrice}
@@ -478,17 +505,16 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="flex flex-col gap-8">
-              {/* Perguntas avulsas */}
-              <div className="mystic-card overflow-hidden">
-                <Image
-                  src="/images/chat-atb.webp"
-                  alt=""
-                  width={1024}
-                  height={1024}
-                  className="w-full h-40 object-cover"
-                />
-                <div className="p-8 pt-6">
+            {/* Perguntas avulsas */}
+            <div className="mystic-card overflow-hidden">
+              <Image
+                src="/images/chat-atb.webp"
+                alt=""
+                width={1024}
+                height={1024}
+                className="w-full h-40 object-cover"
+              />
+              <div className="p-8 pt-6">
                 <div className="text-3xl mb-2">💬</div>
                 <h3 className="font-serif text-2xl text-[#c9a84c] mb-2">
                   {t.perguntasTitle}
@@ -515,33 +541,6 @@ export default function LandingPage() {
                   >
                     {t.pergunta7}
                   </a>
-                </div>
-                </div>
-              </div>
-
-              {/* Limpeza */}
-              <div className="mystic-card overflow-hidden">
-                <Image
-                  src="/images/limpeza.webp"
-                  alt=""
-                  width={1536}
-                  height={1024}
-                  className="w-full h-40 object-cover"
-                />
-                <div className="p-8 pt-6">
-                <div className="text-3xl mb-2">🕊️</div>
-                <h3 className="font-serif text-2xl text-[#c9a84c] mb-2">
-                  {t.limpezaTitle}
-                </h3>
-                <p className="text-[#c2b9a4] text-base leading-relaxed mb-6">
-                  {t.limpezaDesc}
-                </p>
-                <Link
-                  href="/limpeza"
-                  className="btn-gold inline-block px-8 py-4 rounded-xl text-base w-full text-center"
-                >
-                  {t.limpezaCta}
-                </Link>
                 </div>
               </div>
             </div>
