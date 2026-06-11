@@ -6,6 +6,7 @@
 // resto do mundo → Stripe na moeda local.
 
 import Link from "next/link";
+import Image from "next/image";
 import { useUiLocale, LOCALE_LABELS, type UiLocale } from "@/lib/use-locale";
 
 const DICT: Record<
@@ -265,6 +266,18 @@ export default function LandingPage() {
           >
             {t.ctaMain}
           </a>
+
+          {/* Imagem mística gerada por IA (decorativa) */}
+          <div className="mt-14 mystic-card overflow-hidden border-2 border-[#c9a84c]/30 shadow-gold">
+            <Image
+              src="/images/hero-tarot.webp"
+              alt=""
+              width={1536}
+              height={1024}
+              priority
+              className="w-full h-auto"
+            />
+          </div>
         </div>
       </section>
 
@@ -344,7 +357,15 @@ export default function LandingPage() {
 
             <div className="flex flex-col gap-8">
               {/* Perguntas avulsas */}
-              <div className="mystic-card p-8 flex-1">
+              <div className="mystic-card flex-1 overflow-hidden">
+                <Image
+                  src="/images/chat-atb.webp"
+                  alt=""
+                  width={1024}
+                  height={1024}
+                  className="w-full h-40 object-cover"
+                />
+                <div className="p-8 pt-6">
                 <div className="text-3xl mb-2">💬</div>
                 <h3 className="font-serif text-2xl text-[#c9a84c] mb-2">
                   {t.perguntasTitle}
@@ -372,10 +393,19 @@ export default function LandingPage() {
                     {t.pergunta7}
                   </a>
                 </div>
+                </div>
               </div>
 
               {/* Limpeza */}
-              <div className="mystic-card p-8 flex-1">
+              <div className="mystic-card flex-1 overflow-hidden">
+                <Image
+                  src="/images/limpeza.webp"
+                  alt=""
+                  width={1536}
+                  height={1024}
+                  className="w-full h-40 object-cover"
+                />
+                <div className="p-8 pt-6">
                 <div className="text-3xl mb-2">🕊️</div>
                 <h3 className="font-serif text-2xl text-[#c9a84c] mb-2">
                   {t.limpezaTitle}
@@ -389,6 +419,7 @@ export default function LandingPage() {
                 >
                   {t.limpezaCta}
                 </Link>
+                </div>
               </div>
             </div>
           </div>

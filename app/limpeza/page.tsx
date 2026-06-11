@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 type Locale = "pt-BR" | "en" | "es";
 
@@ -234,6 +235,16 @@ export default function LimpezaPage() {
         </div>
 
         <div className="text-center mb-8">
+          <div className="mystic-card overflow-hidden border border-[#c9a84c]/30 mb-6">
+            <Image
+              src="/images/limpeza.webp"
+              alt=""
+              width={1536}
+              height={1024}
+              priority
+              className="w-full h-44 object-cover"
+            />
+          </div>
           <div className="text-5xl mb-4 animate-float">🕊️</div>
           <h1 className="font-serif text-3xl gold-gradient-text mb-3">
             {t.title}
