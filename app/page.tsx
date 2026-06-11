@@ -64,7 +64,7 @@ const DICT: Record<
     ],
     productsTitle: "O que está pesando no seu coração hoje?",
     productsSubtitle:
-      "Escolha abaixo — quanto mais cedo você pergunta, mais cedo a resposta chega",
+      "Escolha abaixo — quanto mais cedo você pergunta, mais cedo a resposta chega · no Brasil em reais, no exterior na moeda da sua região",
     planTitle: "Plano Mensal — para ter a ATB sempre por perto",
     planPrice: "R$29",
     planPer: "menos de R$1 por dia · cancele quando quiser",
@@ -121,7 +121,7 @@ const DICT: Record<
     ],
     productsTitle: "What is weighing on your heart today?",
     productsSubtitle:
-      "Choose below — the sooner you ask, the sooner your answer arrives",
+      "Choose below — the sooner you ask, the sooner your answer arrives · you pay in your region's currency",
     planTitle: "Monthly Plan — keep ATB close, always",
     planPrice: "$9",
     planPer: "less than 30¢ a day · cancel anytime",
@@ -178,7 +178,7 @@ const DICT: Record<
     ],
     productsTitle: "¿Qué está pesando en tu corazón hoy?",
     productsSubtitle:
-      "Elige abajo — cuanto antes preguntes, antes llega tu respuesta",
+      "Elige abajo — cuanto antes preguntes, antes llega tu respuesta · pagas en la moneda de tu región",
     planTitle: "Plan Mensual — para tener a ATB siempre cerca",
     planPrice: "$9",
     planPer: "menos de 30¢ al día · cancela cuando quieras",
@@ -431,7 +431,11 @@ export default function LandingPage() {
       </section>
 
       {/* ── PRODUTOS ───────────────────────────────────────────────────────── */}
-      <section className="py-20 px-6" id="produtos">
+      {/* id="assinar" é a âncora histórica usada pelo login e pelos
+          cancel_url/erros do roteador de checkout; "produtos" é o alvo
+          do CTA do hero. Os dois apontam para esta seção. */}
+      <section className="py-20 px-6 scroll-mt-24" id="assinar">
+        <div id="produtos" />
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-4">
             <h2 className="text-3xl md:text-4xl font-serif gold-gradient-text mb-3">

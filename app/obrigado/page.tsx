@@ -61,10 +61,16 @@ export default async function ObrigadoPage({
   searchParams: Promise<{ lang?: string }>;
 }) {
   const { lang } = await searchParams;
-  const t = COPY[normalize(lang)];
+  const locale = normalize(lang);
+  const t = COPY[locale];
 
   return (
-    <main className="min-h-screen bg-mystic-gradient stars-bg flex items-center justify-center px-6">
+    // lang no <main>: o layout raiz fixa html lang="pt-BR"; esta página é
+    // server-rendered no idioma do comprador (?lang= do success_url).
+    <main
+      lang={locale}
+      className="min-h-screen bg-mystic-gradient stars-bg flex items-center justify-center px-6"
+    >
       <div className="w-full max-w-lg text-center">
         <div className="text-6xl mb-6 animate-float">🌟</div>
         <h1 className="font-serif text-4xl gold-gradient-text mb-4">

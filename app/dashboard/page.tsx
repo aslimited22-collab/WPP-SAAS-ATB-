@@ -944,7 +944,8 @@ export default function DashboardPage() {
               {profile?.nome ? `${t.hello}, ${profile.nome}` : t.welcome}
             </h1>
             <p className="text-[#b5ab97] text-base">
-              {profile?.signo && `✦ ${profile.signo}`}
+              {profile?.signo &&
+                `✦ ${t.signoLabels[profile.signo as Signo] ?? profile.signo}`}
               {profile?.signo && profile?.data_nascimento && " · "}
               {profile?.data_nascimento &&
                 new Date(profile.data_nascimento).toLocaleDateString(locale, {

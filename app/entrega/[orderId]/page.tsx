@@ -77,12 +77,19 @@ const COPY: Record<
 function Shell({
   children,
   refresh,
+  lang = "pt-BR",
 }: {
   children: React.ReactNode;
   refresh?: boolean;
+  lang?: string;
 }) {
+  // lang no <main>: o layout raiz fixa html lang="pt-BR"; esta página é
+  // server-rendered no idioma do comprador, então marcamos o conteúdo.
   return (
-    <main className="min-h-screen bg-mystic-gradient stars-bg px-6 py-16">
+    <main
+      lang={lang}
+      className="min-h-screen bg-mystic-gradient stars-bg px-6 py-16"
+    >
       {refresh ? <meta httpEquiv="refresh" content="20" /> : null}
       <div className="max-w-xl mx-auto animate-fade-in">{children}</div>
     </main>
@@ -124,7 +131,7 @@ export default async function EntregaPage({
 
   if (order.status !== "paid") {
     return (
-      <Shell refresh>
+      <Shell refresh lang={locale}>
         <div className="text-center">
           <div className="text-5xl mb-6 animate-float">⏳</div>
           <h1 className="font-serif text-3xl gold-gradient-text mb-4">
@@ -144,7 +151,7 @@ export default async function EntregaPage({
 
   if (!reading?.full_json) {
     return (
-      <Shell refresh>
+      <Shell refresh lang={locale}>
         <div className="text-center">
           <div className="text-5xl mb-6 animate-float">🕯️</div>
           <h1 className="font-serif text-3xl gold-gradient-text mb-4">
@@ -159,7 +166,7 @@ export default async function EntregaPage({
   const r = reading.full_json as FullReadingJson;
 
   return (
-    <Shell>
+    <Shell lang={locale}>
       <div className="text-center mb-10">
         <div className="text-5xl mb-4 animate-float">🕊️</div>
         <h1 className="font-serif text-4xl gold-gradient-text mb-2">{r.title}</h1>

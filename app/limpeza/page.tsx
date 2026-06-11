@@ -5,11 +5,12 @@
 // o comprador ao roteador de checkout (BR → Kiwify, internacional → Stripe).
 // Página multilíngue: detecta o idioma do navegador, com seletor manual.
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useUiLocale, type UiLocale } from "@/lib/use-locale";
 
-type Locale = "pt-BR" | "en" | "es" | "de" | "it";
+type Locale = UiLocale;
 
 const TEMAS = [
   "energia_pesada",
@@ -229,18 +230,10 @@ const DICT: Record<Locale, {
   },
 };
 
-function detectLocale(): Locale {
-  if (typeof navigator === "undefined") return "pt-BR";
-  const lang = (navigator.language ?? "").toLowerCase();
-  if (lang.startsWith("pt")) return "pt-BR";
-  if (lang.startsWith("es")) return "es";
-  if (lang.startsWith("de")) return "de";
-  if (lang.startsWith("it")) return "it";
-  return "en";
-}
-
 export default function LimpezaPage() {
-  const [locale, setLocale] = useState<Locale>("pt-BR");
+  // Mesmo idioma escolhido nas outras páginas (persistido em localStorage
+  // e refletido em html lang pelo hook compartilhado).
+  const [locale, setLocale] = useUiLocale();
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -248,10 +241,6 @@ export default function LimpezaPage() {
   const [tema, setTema] = useState<string>("energia_pesada");
   const [pergunta, setPergunta] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
-
-  useEffect(() => {
-    setLocale(detectLocale());
-  }, []);
 
   const t = DICT[locale];
 
