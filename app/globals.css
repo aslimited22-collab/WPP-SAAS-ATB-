@@ -176,3 +176,30 @@ h1, h2, h3, h4 {
   background: linear-gradient(90deg, transparent, var(--gold), transparent);
   margin: 0 auto;
 }
+
+/* "Digitando..." do chat — três pontinhos pulsando como no WhatsApp */
+.typing-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--gold);
+  opacity: 0.3;
+  animation: typing-blink 1.2s infinite ease-in-out;
+}
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes typing-blink {
+  0%, 80%, 100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}

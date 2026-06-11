@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -79,6 +79,7 @@ type DashboardDict = {
   chatCredits: string;
   chatMsgs: string;
   chatEmpty: string;
+  chatWelcome: string;
   chatReceiving: string;
   errChat: string;
   chatBuyText: string;
@@ -153,6 +154,8 @@ const DICT: Record<UiLocale, DashboardDict> = {
     chatCredits: "créditos",
     chatMsgs: "msgs no mês",
     chatEmpty: "Envie sua primeira mensagem para a ATB.",
+    chatWelcome:
+      "Minha querida alma, que alegria te receber aqui... 🌙|||Me conta: o que está pesando no seu coração hoje? Pode falar comigo com toda a confiança.",
     chatReceiving: "✦ ATB está recebendo os sinais...",
     errChat: "Erro ao falar com a ATB. Tente novamente.",
     chatBuyText:
@@ -249,6 +252,8 @@ const DICT: Record<UiLocale, DashboardDict> = {
     chatCredits: "credits",
     chatMsgs: "msgs this month",
     chatEmpty: "Send your first message to ATB.",
+    chatWelcome:
+      "My dear soul, what a joy to have you here... 🌙|||Tell me: what is weighing on your heart today? You can speak to me in full confidence.",
     chatReceiving: "✦ ATB is receiving the signs...",
     errChat: "Could not reach ATB. Please try again.",
     chatBuyText:
@@ -345,6 +350,8 @@ const DICT: Record<UiLocale, DashboardDict> = {
     chatCredits: "créditos",
     chatMsgs: "msjs al mes",
     chatEmpty: "Envía tu primer mensaje a ATB.",
+    chatWelcome:
+      "Querida alma, qué alegría recibirte aquí... 🌙|||Cuéntame: ¿qué pesa en tu corazón hoy? Puedes hablar conmigo con toda confianza.",
     chatReceiving: "✦ ATB está recibiendo las señales...",
     errChat: "Error al hablar con ATB. Inténtalo de nuevo.",
     chatBuyText:
@@ -445,6 +452,8 @@ const DICT: Record<UiLocale, DashboardDict> = {
     chatCredits: "Guthaben",
     chatMsgs: "Nachrichten im Monat",
     chatEmpty: "Sende deine erste Nachricht an ATB.",
+    chatWelcome:
+      "Meine liebe Seele, wie schön, dass du hier bist... 🌙|||Erzähl mir: Was liegt dir heute auf dem Herzen? Du kannst ganz offen mit mir sprechen.",
     chatReceiving: "✦ ATB empfängt die Zeichen...",
     errChat: "ATB konnte nicht erreicht werden. Bitte versuche es noch einmal.",
     chatBuyText:
@@ -542,6 +551,8 @@ const DICT: Record<UiLocale, DashboardDict> = {
     chatCredits: "crediti",
     chatMsgs: "msg al mese",
     chatEmpty: "Invia il tuo primo messaggio ad ATB.",
+    chatWelcome:
+      "Anima cara, che gioia averti qui... 🌙|||Raccontami: cosa ti pesa sul cuore oggi? Puoi parlarmi con tutta fiducia.",
     chatReceiving: "✦ ATB sta ricevendo i segni...",
     errChat: "Errore nel parlare con ATB. Riprova.",
     chatBuyText:
@@ -630,6 +641,14 @@ export default function DashboardPage() {
   const [chatUsingCredits, setChatUsingCredits] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatLoaded, setChatLoaded] = useState(false);
+  // "digitando..." da ATB entre as bolhas (coreografia humana)
+  const [atbTyping, setAtbTyping] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Rola a conversa para o fim a cada bolha nova / indicador de digitação
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [chatMessages, atbTyping]);
 
   const {
     register,
@@ -826,6 +845,7 @@ export default function DashboardPage() {
     setChatError(null);
     setChatInput("");
     setChatMessages((prev) => [...prev, { role: "user", content: message }]);
+    setAtbTyping(true);
 
     try {
       const res = await fetch("/api/chat", {
@@ -844,29 +864,42 @@ export default function DashboardPage() {
         return;
       }
 
-      // Streaming da resposta
-      setChatMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+      // Lê o stream inteiro em silêncio (a ATB "está digitando") e depois
+      // revela bolha por bolha, como uma pessoa de verdade no WhatsApp:
+      // digitando... → mensagem curta → digitando... → próxima mensagem.
+      let full = "";
       const reader = res.body?.getReader();
       if (reader) {
         const decoder = new TextDecoder();
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          if (chunk) {
-            setChatMessages((prev) => {
-              const next = [...prev];
-              const last = next[next.length - 1];
-              if (last?.role === "assistant") {
-                next[next.length - 1] = {
-                  ...last,
-                  content: last.content + chunk,
-                };
-              }
-              return next;
-            });
-          }
+          full += decoder.decode(value, { stream: true });
         }
+      }
+
+      const bubbles = full
+        .split("|||")
+        .map((b) => b.trim())
+        .filter(Boolean);
+
+      const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+      setChatMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
+      for (let k = 0; k < bubbles.length; k++) {
+        // tempo de "digitação" proporcional ao tamanho da mensagem
+        const delay = Math.min(900 + bubbles[k].length * 22, 3200);
+        await sleep(k === 0 ? Math.min(delay, 1600) : delay);
+        const revealed = bubbles.slice(0, k + 1).join("|||");
+        setChatMessages((prev) => {
+          const next = [...prev];
+          const last = next[next.length - 1];
+          if (last?.role === "assistant") {
+            next[next.length - 1] = { ...last, content: revealed };
+          }
+          return next;
+        });
+        if (k < bubbles.length - 1) await sleep(450);
       }
 
       setChatRemaining((prev) =>
@@ -875,6 +908,7 @@ export default function DashboardPage() {
     } catch {
       setChatError(t.errConnection);
     } finally {
+      setAtbTyping(false);
       setChatSending(false);
     }
   }
@@ -1154,38 +1188,53 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* Mensagens */}
-              <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg p-4 h-96 overflow-y-auto mb-4 space-y-4">
-                {chatMessages.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-center">
-                    <div>
-                      <div className="text-4xl mb-3 opacity-40">🔮</div>
-                      <p className="text-[#aca189] text-base">
-                        {t.chatEmpty}
-                      </p>
+              {/* Mensagens — cada resposta da ATB vira bolhas curtas (|||),
+                  como uma conversa de WhatsApp de verdade */}
+              <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg p-4 h-96 overflow-y-auto mb-4 space-y-3">
+                {chatMessages.length === 0 &&
+                  t.chatWelcome
+                    .split("|||")
+                    .map((b) => b.trim())
+                    .filter(Boolean)
+                    .map((b, i) => (
+                      <div key={`w${i}`} className="flex justify-start">
+                        <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-3 text-base leading-relaxed whitespace-pre-wrap bg-[#1a0a2e]/60 border border-[#2a2a2a] text-[#e8e0d0]/90 font-serif italic animate-fade-in">
+                          {b}
+                        </div>
+                      </div>
+                    ))}
+                {chatMessages.flatMap((m, i) => {
+                  if (m.role === "user") {
+                    return (
+                      <div key={`${m.id ?? i}`} className="flex justify-end">
+                        <div className="max-w-[85%] rounded-2xl rounded-br-md px-4 py-3 text-base leading-relaxed whitespace-pre-wrap bg-[#c9a84c]/15 border border-[#c9a84c]/30 text-[#e8e0d0]">
+                          {m.content}
+                        </div>
+                      </div>
+                    );
+                  }
+                  return m.content
+                    .split("|||")
+                    .map((b) => b.trim())
+                    .filter(Boolean)
+                    .map((b, j) => (
+                      <div key={`${m.id ?? i}-${j}`} className="flex justify-start">
+                        <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-3 text-base leading-relaxed whitespace-pre-wrap bg-[#1a0a2e]/60 border border-[#2a2a2a] text-[#e8e0d0]/90 font-serif italic animate-fade-in">
+                          {b}
+                        </div>
+                      </div>
+                    ));
+                })}
+                {atbTyping && (
+                  <div className="flex justify-start">
+                    <div className="rounded-2xl rounded-bl-md px-5 py-4 bg-[#1a0a2e]/60 border border-[#2a2a2a] flex items-center gap-1.5">
+                      <span className="typing-dot" />
+                      <span className="typing-dot" />
+                      <span className="typing-dot" />
                     </div>
                   </div>
-                ) : (
-                  chatMessages.map((m, i) => (
-                    <div
-                      key={m.id ?? i}
-                      className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-                    >
-                      <div
-                        className={`max-w-[85%] rounded-lg px-4 py-3 text-base leading-relaxed whitespace-pre-wrap ${
-                          m.role === "user"
-                            ? "bg-[#c9a84c]/15 border border-[#c9a84c]/30 text-[#e8e0d0]"
-                            : "bg-[#1a0a2e]/60 border border-[#2a2a2a] text-[#e8e0d0]/90 font-serif italic"
-                        }`}
-                      >
-                        {m.content ||
-                          (chatSending && i === chatMessages.length - 1
-                            ? t.chatReceiving
-                            : "")}
-                      </div>
-                    </div>
-                  ))
                 )}
+                <div ref={chatEndRef} />
               </div>
 
               {chatError && (
