@@ -3,22 +3,40 @@ import { Redis } from "@upstash/redis";
 
 // ─── Singleton Redis ──────────────────────────────────────────────────────────
 let redis: Redis | null = null;
+let warnedMissingRedis = false;
+
+// Upstash é OPCIONAL: sem as envs, os limiters operam em fail-open (todas as
+// requisições passam) — as rotas têm gates próprios (auth, créditos, HMAC).
+// Configure UPSTASH_REDIS_REST_URL/TOKEN em produção para ativar o rate limit.
+export function isRateLimitConfigured(): boolean {
+  return !!(
+    process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+  );
+}
 
 function getRedis(): Redis {
   if (redis) return redis;
-  if (
-    !process.env.UPSTASH_REDIS_REST_URL ||
-    !process.env.UPSTASH_REDIS_REST_TOKEN
-  ) {
-    throw new Error(
-      "Upstash Redis não configurado: UPSTASH_REDIS_REST_URL e UPSTASH_REDIS_REST_TOKEN são obrigatórios"
-    );
-  }
   redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    url: process.env.UPSTASH_REDIS_REST_URL!,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
   });
   return redis;
+}
+
+const PASS: RateLimitResult = {
+  success: true,
+  limit: 0,
+  remaining: 0,
+  reset: 0,
+};
+
+function warnOnce() {
+  if (!warnedMissingRedis) {
+    warnedMissingRedis = true;
+    console.warn(
+      "[RateLimit] Upstash não configurado — rate limiting desativado (fail-open)"
+    );
+  }
 }
 
 // ─── Rate limiters (lazy) ─────────────────────────────────────────────────────
@@ -52,6 +70,10 @@ export interface RateLimitResult {
 export async function checkRateLimit(
   identifier: string
 ): Promise<RateLimitResult> {
+  if (!isRateLimitConfigured()) {
+    warnOnce();
+    return PASS;
+  }
   if (!generalLimiter)
     generalLimiter = makeRatelimiter(20, "1 m", "atb_rl_general");
   const r = await generalLimiter.limit(identifier);
@@ -64,6 +86,10 @@ export async function checkRateLimit(
 export async function checkReadingRateLimit(
   userId: string
 ): Promise<RateLimitResult> {
+  if (!isRateLimitConfigured()) {
+    warnOnce();
+    return PASS;
+  }
   if (!readingLimiter)
     readingLimiter = makeRatelimiter(5, "1 h", "atb_rl_reading");
   const r = await readingLimiter.limit(`user:${userId}`);
@@ -75,6 +101,10 @@ export async function checkReadingRateLimit(
 export async function checkProfileRateLimit(
   userId: string
 ): Promise<RateLimitResult> {
+  if (!isRateLimitConfigured()) {
+    warnOnce();
+    return PASS;
+  }
   if (!profileLimiter)
     profileLimiter = makeRatelimiter(10, "1 m", "atb_rl_profile");
   const r = await profileLimiter.limit(`user:${userId}`);
@@ -87,6 +117,10 @@ export async function checkProfileRateLimit(
 export async function checkWebhookRateLimit(
   ip: string
 ): Promise<RateLimitResult> {
+  if (!isRateLimitConfigured()) {
+    warnOnce();
+    return PASS;
+  }
   if (!webhookLimiter)
     webhookLimiter = makeRatelimiter(60, "1 m", "atb_rl_webhook");
   const r = await webhookLimiter.limit(`ip:${ip}`);
