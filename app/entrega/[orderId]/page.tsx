@@ -78,7 +78,7 @@ export default async function EntregaPage({
   if (!UUID_RE.test(orderId)) {
     return (
       <Shell>
-        <p className="text-center text-[#888]">{COPY["pt-BR"].notFound}</p>
+        <p className="text-center text-[#c2b9a4]">{COPY["pt-BR"].notFound}</p>
       </Shell>
     );
   }
@@ -93,7 +93,7 @@ export default async function EntregaPage({
   if (!order) {
     return (
       <Shell>
-        <p className="text-center text-[#888]">{COPY["pt-BR"].notFound}</p>
+        <p className="text-center text-[#c2b9a4]">{COPY["pt-BR"].notFound}</p>
       </Shell>
     );
   }
@@ -109,7 +109,7 @@ export default async function EntregaPage({
           <h1 className="font-serif text-3xl gold-gradient-text mb-4">
             {t.pendingTitle}
           </h1>
-          <p className="text-[#888] leading-relaxed">{t.pendingBody}</p>
+          <p className="text-[#c2b9a4] leading-relaxed">{t.pendingBody}</p>
         </div>
       </Shell>
     );
@@ -129,7 +129,7 @@ export default async function EntregaPage({
           <h1 className="font-serif text-3xl gold-gradient-text mb-4">
             {t.preparingTitle}
           </h1>
-          <p className="text-[#888] leading-relaxed">{t.preparingBody}</p>
+          <p className="text-[#c2b9a4] leading-relaxed">{t.preparingBody}</p>
         </div>
       </Shell>
     );
@@ -192,7 +192,7 @@ export default async function EntregaPage({
           </p>
         </div>
 
-        <p className="text-[#444] text-xs text-center leading-relaxed px-4">
+        <p className="text-[#a39878] text-xs text-center leading-relaxed px-4">
           {r.disclaimer}
         </p>
       </div>

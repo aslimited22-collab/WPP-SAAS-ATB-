@@ -3,9 +3,64 @@
 import Link from "next/link";
 import { createBrowserSupabaseClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { useUiLocale, LOCALE_LABELS, type UiLocale } from "@/lib/use-locale";
+
+const DICT: Record<
+  UiLocale,
+  {
+    title: string;
+    msg1Before: string;
+    brand: string;
+    msg1After: string;
+    msg2: string;
+    reactivate: string;
+    goDashboard: string;
+    logout: string;
+    justSubscribed: string;
+  }
+> = {
+  "pt-BR": {
+    title: "Portal Inacessível",
+    msg1Before: "Minha querida alma, as cartas indicam que sua jornada com o ",
+    brand: "ATB TAROT IA",
+    msg1After: " está pausada no momento.",
+    msg2: "Para acessar suas leituras místicas e ouvir a voz de ATB, você precisa de uma assinatura ativa.",
+    reactivate: "✦ Reativar Minha Assinatura — R$29/mês",
+    goDashboard: "Ir para o Dashboard",
+    logout: "Sair da conta",
+    justSubscribed:
+      "Se você acabou de assinar e está vendo esta tela, aguarde alguns minutos e atualize a página.",
+  },
+  en: {
+    title: "The Portal Is Locked",
+    msg1Before: "Dear soul, the cards reveal that your journey with ",
+    brand: "ATB TAROT IA",
+    msg1After: " is paused for now.",
+    msg2: "To access your mystical readings and hear ATB's voice, you need an active subscription.",
+    reactivate: "✦ Reactivate My Subscription — $9/month",
+    goDashboard: "Go to Dashboard",
+    logout: "Sign out",
+    justSubscribed:
+      "If you just subscribed and are seeing this screen, please wait a few minutes and refresh the page.",
+  },
+  es: {
+    title: "Portal Inaccesible",
+    msg1Before: "Querida alma, las cartas indican que tu camino con ",
+    brand: "ATB TAROT IA",
+    msg1After: " está en pausa por el momento.",
+    msg2: "Para acceder a tus lecturas místicas y escuchar la voz de ATB, necesitas una suscripción activa.",
+    reactivate: "✦ Reactivar Mi Suscripción — $9/mes",
+    goDashboard: "Ir al Panel",
+    logout: "Cerrar sesión",
+    justSubscribed:
+      "Si acabas de suscribirte y estás viendo esta pantalla, espera unos minutos y actualiza la página.",
+  },
+};
 
 export default function AssinaturaInativaPage() {
   const router = useRouter();
+  const [locale, setLocale] = useUiLocale();
+  const t = DICT[locale];
 
   async function handleLogout() {
     const supabase = createBrowserSupabaseClient();
@@ -16,55 +71,66 @@ export default function AssinaturaInativaPage() {
   return (
     <main className="min-h-screen bg-mystic-gradient stars-bg flex items-center justify-center px-6">
       <div className="w-full max-w-lg text-center animate-fade-in">
+        <div className="flex items-center justify-center gap-2 mb-8">
+          {(Object.keys(LOCALE_LABELS) as UiLocale[]).map((l) => (
+            <button
+              key={l}
+              onClick={() => setLocale(l)}
+              aria-label={LOCALE_LABELS[l]}
+              className={`px-3 py-2 rounded-lg border text-sm font-semibold transition-colors ${
+                locale === l
+                  ? "border-[#c9a84c] text-[#c9a84c] bg-[#c9a84c]/10"
+                  : "border-[#3a3a3a] text-[#b5ab97] hover:text-[#c9a84c]"
+              }`}
+            >
+              {l === "pt-BR" ? "PT" : l.toUpperCase()}
+            </button>
+          ))}
+        </div>
+
         <div className="text-6xl mb-6 animate-float">🔒</div>
 
         <h1 className="font-serif text-3xl gold-gradient-text mb-4">
-          Portal Inacessível
+          {t.title}
         </h1>
 
         <div className="divider-gold mb-8" />
 
         <div className="mystic-card p-8 border border-[#8b0000]/30 mb-8">
-          <p className="text-[#e8e0d0]/80 leading-relaxed mb-4">
-            Minha querida alma, as cartas indicam que sua jornada com o{" "}
-            <strong className="text-[#c9a84c]">ATB TAROT IA</strong> está
-            pausada no momento.
+          <p className="text-[#e8e0d0]/80 text-base leading-relaxed mb-4">
+            {t.msg1Before}
+            <strong className="text-[#c9a84c]">{t.brand}</strong>
+            {t.msg1After}
           </p>
-          <p className="text-[#888] text-sm leading-relaxed">
-            Para acessar suas leituras místicas e ouvir a voz de ATB,
-            você precisa de uma assinatura ativa.
-          </p>
+          <p className="text-[#c2b9a4] text-base leading-relaxed">{t.msg2}</p>
         </div>
 
         <div className="space-y-4">
           <a
             href="/api/checkout/basic"
-            className="btn-gold w-full block py-4 text-base"
+            className="btn-gold w-full block py-4 text-lg"
           >
-            ✦ Reativar Minha Assinatura — R$29/mês
+            {t.reactivate}
           </a>
 
-          <div className="flex items-center justify-center gap-4 text-sm">
+          <div className="flex items-center justify-center gap-4 text-base">
             <Link
               href="/dashboard"
               className="text-[#c9a84c] hover:underline"
             >
-              Ir para o Dashboard
+              {t.goDashboard}
             </Link>
-            <span className="text-[#333]">·</span>
+            <span className="text-[#9a9077]">·</span>
             <button
               onClick={handleLogout}
-              className="text-[#555] hover:text-[#888] transition-colors"
+              className="text-[#aca189] hover:text-[#c2b9a4] transition-colors"
             >
-              Sair da conta
+              {t.logout}
             </button>
           </div>
         </div>
 
-        <p className="text-[#333] text-xs mt-10">
-          Se você acabou de assinar e está vendo esta tela, aguarde alguns
-          minutos e atualize a página.
-        </p>
+        <p className="text-[#9a9077] text-sm mt-10">{t.justSubscribed}</p>
       </div>
     </main>
   );

@@ -224,7 +224,7 @@ export default function LimpezaPage() {
                 className={`px-2 py-1 rounded border transition-colors ${
                   locale === l
                     ? "border-[#c9a84c] text-[#c9a84c]"
-                    : "border-[#2a2a2a] text-[#666] hover:text-[#c9a84c]"
+                    : "border-[#2a2a2a] text-[#b5ab97] hover:text-[#c9a84c]"
                 }`}
               >
                 {l === "pt-BR" ? "PT" : l.toUpperCase()}
@@ -238,7 +238,7 @@ export default function LimpezaPage() {
           <h1 className="font-serif text-3xl gold-gradient-text mb-3">
             {t.title}
           </h1>
-          <p className="text-[#888] text-sm leading-relaxed mb-2">{t.subtitle}</p>
+          <p className="text-[#c2b9a4] text-sm leading-relaxed mb-2">{t.subtitle}</p>
           <p className="text-[#c9a84c] text-sm font-semibold">{t.price}</p>
         </div>
 
@@ -247,7 +247,7 @@ export default function LimpezaPage() {
           className="mystic-card p-8 border border-[#c9a84c]/30 space-y-5"
         >
           <div>
-            <label htmlFor="nome" className="block text-sm text-[#888] mb-2">
+            <label htmlFor="nome" className="block text-sm text-[#c2b9a4] mb-2">
               {t.nome}
             </label>
             <input
@@ -262,7 +262,7 @@ export default function LimpezaPage() {
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm text-[#888] mb-2">
+            <label htmlFor="email" className="block text-sm text-[#c2b9a4] mb-2">
               {t.email}
             </label>
             <input
@@ -277,7 +277,7 @@ export default function LimpezaPage() {
           </div>
 
           <div>
-            <label htmlFor="phone" className="block text-sm text-[#888] mb-2">
+            <label htmlFor="phone" className="block text-sm text-[#c2b9a4] mb-2">
               {t.phone}
             </label>
             <input
@@ -292,7 +292,7 @@ export default function LimpezaPage() {
           </div>
 
           <div>
-            <label htmlFor="signo" className="block text-sm text-[#888] mb-2">
+            <label htmlFor="signo" className="block text-sm text-[#c2b9a4] mb-2">
               {t.signo}
             </label>
             <select
@@ -311,7 +311,7 @@ export default function LimpezaPage() {
           </div>
 
           <div>
-            <label htmlFor="tema" className="block text-sm text-[#888] mb-2">
+            <label htmlFor="tema" className="block text-sm text-[#c2b9a4] mb-2">
               {t.tema}
             </label>
             <select
@@ -330,7 +330,7 @@ export default function LimpezaPage() {
           </div>
 
           <div>
-            <label htmlFor="pergunta" className="block text-sm text-[#888] mb-2">
+            <label htmlFor="pergunta" className="block text-sm text-[#c2b9a4] mb-2">
               {t.pergunta}
             </label>
             <textarea
@@ -358,7 +358,7 @@ export default function LimpezaPage() {
             {status === "loading" ? t.submitting : t.submit}
           </button>
 
-          <p className="text-[#444] text-xs text-center">{t.disclaimer}</p>
+          <p className="text-[#a39878] text-xs text-center">{t.disclaimer}</p>
         </form>
       </div>
     </main>

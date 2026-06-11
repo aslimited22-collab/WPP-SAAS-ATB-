@@ -60,7 +60,7 @@ export default async function ObrigadoPage({
             {t.body1}{" "}
             <strong className="text-[#c9a84c]">ATB TAROT IA</strong>.
           </p>
-          <p className="text-[#888] text-sm leading-relaxed">{t.body2}</p>
+          <p className="text-[#c2b9a4] text-sm leading-relaxed">{t.body2}</p>
         </div>
         <Link
           href="/login"

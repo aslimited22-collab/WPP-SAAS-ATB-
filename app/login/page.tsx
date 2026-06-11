@@ -7,9 +7,88 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createBrowserSupabaseClient } from "@/lib/supabase";
 import { loginSchema, type LoginInput } from "@/lib/validators";
+import { useUiLocale, LOCALE_LABELS, type UiLocale } from "@/lib/use-locale";
+
+const DICT: Record<
+  UiLocale,
+  {
+    tagline: string;
+    sentTitle: string;
+    sentText: string;
+    sentNotReceived: string;
+    sentTryAgain: string;
+    formTitle: string;
+    emailLabel: string;
+    emailPlaceholder: string;
+    errorRate: string;
+    errorGeneric: string;
+    sending: string;
+    submit: string;
+    footerQuestion: string;
+    footerLink: string;
+    footerBrand: string;
+  }
+> = {
+  "pt-BR": {
+    tagline: "Entre com seu e-mail para acessar seu portal místico",
+    sentTitle: "Verifique seu e-mail",
+    sentText:
+      "Um link mágico foi enviado para o seu e-mail, querida alma. Clique nele para acessar sua conta.",
+    sentNotReceived: "Não recebeu? Verifique a pasta de spam ou",
+    sentTryAgain: "tente novamente",
+    formTitle: "Acessar Portal",
+    emailLabel: "E-mail",
+    emailPlaceholder: "seu@email.com",
+    errorRate: "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+    errorGeneric: "Erro ao enviar o link de acesso. Tente novamente.",
+    sending: "Enviando link mágico...",
+    submit: "✦ Enviar Link de Acesso",
+    footerQuestion: "Ainda não é assinante?",
+    footerLink: "Assine por R$29/mês",
+    footerBrand: "ATB TAROT IA — Portal de Leituras Místicas",
+  },
+  en: {
+    tagline: "Sign in with your email to enter your mystical portal",
+    sentTitle: "Check your email",
+    sentText:
+      "A magic link has been sent to your email, dear soul. Click it to access your account.",
+    sentNotReceived: "Didn't get it? Check your spam folder or",
+    sentTryAgain: "try again",
+    formTitle: "Enter the Portal",
+    emailLabel: "Email",
+    emailPlaceholder: "your@email.com",
+    errorRate: "Too many attempts. Please wait a few minutes and try again.",
+    errorGeneric: "We couldn't send your access link. Please try again.",
+    sending: "Sending your magic link...",
+    submit: "✦ Send Access Link",
+    footerQuestion: "Not a subscriber yet?",
+    footerLink: "Subscribe for $9/month",
+    footerBrand: "ATB TAROT IA — Mystical Readings Portal",
+  },
+  es: {
+    tagline: "Entra con tu correo para acceder a tu portal místico",
+    sentTitle: "Revisa tu correo",
+    sentText:
+      "Un enlace mágico fue enviado a tu correo, querida alma. Haz clic en él para acceder a tu cuenta.",
+    sentNotReceived: "¿No lo recibiste? Revisa la carpeta de spam o",
+    sentTryAgain: "inténtalo de nuevo",
+    formTitle: "Acceder al Portal",
+    emailLabel: "Correo electrónico",
+    emailPlaceholder: "tu@correo.com",
+    errorRate: "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
+    errorGeneric: "Error al enviar el enlace de acceso. Inténtalo de nuevo.",
+    sending: "Enviando enlace mágico...",
+    submit: "✦ Enviar Enlace de Acceso",
+    footerQuestion: "¿Aún no tienes tu suscripción?",
+    footerLink: "Suscríbete por $9/mes",
+    footerBrand: "ATB TAROT IA — Portal de Lecturas Místicas",
+  },
+};
 
 export default function LoginPage() {
   const router = useRouter();
+  const [locale, setLocale] = useUiLocale();
+  const t = DICT[locale];
   const [status, setStatus] = useState<"idle" | "loading" | "sent" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -51,9 +130,9 @@ export default function LoginPage() {
     if (error) {
       setStatus("error");
       if (error.message.includes("rate")) {
-        setErrorMsg("Muitas tentativas. Aguarde alguns minutos e tente novamente.");
+        setErrorMsg("rate");
       } else {
-        setErrorMsg("Erro ao enviar o link de acesso. Tente novamente.");
+        setErrorMsg("generic");
       }
       return;
     }
@@ -62,7 +141,25 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-mystic-gradient stars-bg flex items-center justify-center px-6">
+    <main className="relative min-h-screen bg-mystic-gradient stars-bg flex items-center justify-center px-6">
+      {/* Seletor de idioma */}
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center gap-2 sm:gap-3">
+        {(Object.keys(LOCALE_LABELS) as UiLocale[]).map((l) => (
+          <button
+            key={l}
+            onClick={() => setLocale(l)}
+            aria-label={LOCALE_LABELS[l]}
+            className={`px-3 py-2 rounded-lg border text-sm font-semibold transition-colors ${
+              locale === l
+                ? "border-[#c9a84c] text-[#c9a84c] bg-[#c9a84c]/10"
+                : "border-[#3a3a3a] text-[#b5ab97] hover:text-[#c9a84c]"
+            }`}
+          >
+            {l === "pt-BR" ? "PT" : l.toUpperCase()}
+          </button>
+        ))}
+      </div>
+
       <div className="w-full max-w-md animate-fade-in">
         {/* Logo */}
         <div className="text-center mb-10">
@@ -72,8 +169,8 @@ export default function LoginPage() {
               <span className="text-[#e8e0d0] ml-1">TAROT IA</span>
             </h1>
           </Link>
-          <p className="text-[#666] text-sm mt-2">
-            Entre com seu e-mail para acessar seu portal místico
+          <p className="text-[#b5ab97] text-base mt-2">
+            {t.tagline}
           </p>
         </div>
 
@@ -82,19 +179,18 @@ export default function LoginPage() {
             <div className="text-center py-4">
               <div className="text-5xl mb-4">✉️</div>
               <h2 className="font-serif text-xl text-[#c9a84c] mb-3">
-                Verifique seu e-mail
+                {t.sentTitle}
               </h2>
-              <p className="text-[#888] text-sm leading-relaxed">
-                Um link mágico foi enviado para o seu e-mail. Clique nele para
-                acessar sua conta.
+              <p className="text-[#c2b9a4] text-base leading-relaxed">
+                {t.sentText}
               </p>
-              <p className="text-[#555] text-xs mt-4">
-                Não recebeu? Verifique a pasta de spam ou{" "}
+              <p className="text-[#aca189] text-base mt-4">
+                {t.sentNotReceived}{" "}
                 <button
                   className="text-[#c9a84c] underline"
                   onClick={() => setStatus("idle")}
                 >
-                  tente novamente
+                  {t.sentTryAgain}
                 </button>
                 .
               </p>
@@ -102,28 +198,28 @@ export default function LoginPage() {
           ) : (
             <>
               <h2 className="font-serif text-xl text-[#c9a84c] mb-6 text-center">
-                Acessar Portal
+                {t.formTitle}
               </h2>
 
               <form onSubmit={handleSubmit(onSubmit)} noValidate>
                 <div className="mb-5">
                   <label
                     htmlFor="email"
-                    className="block text-sm text-[#888] mb-2"
+                    className="block text-base text-[#c2b9a4] mb-2"
                   >
-                    E-mail
+                    {t.emailLabel}
                   </label>
                   <input
                     id="email"
                     type="email"
                     autoComplete="email"
-                    placeholder="seu@email.com"
+                    placeholder={t.emailPlaceholder}
                     className="input-mystic"
                     {...register("email")}
                     disabled={status === "loading"}
                   />
                   {errors.email && (
-                    <p className="text-red-400 text-xs mt-1">
+                    <p className="text-red-400 text-base mt-1">
                       {errors.email.message}
                     </p>
                   )}
@@ -131,14 +227,16 @@ export default function LoginPage() {
 
                 {status === "error" && (
                   <div className="bg-red-900/20 border border-red-800/40 rounded-lg p-3 mb-4">
-                    <p className="text-red-400 text-sm">{errorMsg}</p>
+                    <p className="text-red-400 text-base">
+                      {errorMsg === "rate" ? t.errorRate : t.errorGeneric}
+                    </p>
                   </div>
                 )}
 
                 <button
                   type="submit"
                   disabled={status === "loading"}
-                  className="btn-gold w-full py-3 text-sm"
+                  className="btn-gold w-full py-3 text-lg"
                 >
                   {status === "loading" ? (
                     <span className="flex items-center justify-center gap-2">
@@ -162,26 +260,26 @@ export default function LoginPage() {
                           d="M4 12a8 8 0 018-8v8z"
                         />
                       </svg>
-                      Enviando link mágico...
+                      {t.sending}
                     </span>
                   ) : (
-                    "✦ Enviar Link de Acesso"
+                    t.submit
                   )}
                 </button>
               </form>
 
-              <p className="text-center text-[#555] text-xs mt-6">
-                Ainda não é assinante?{" "}
+              <p className="text-center text-[#aca189] text-base mt-6">
+                {t.footerQuestion}{" "}
                 <Link href="/#assinar" className="text-[#c9a84c] hover:underline">
-                  Assine por R$29/mês
+                  {t.footerLink}
                 </Link>
               </p>
             </>
           )}
         </div>
 
-        <p className="text-center text-[#333] text-xs mt-6">
-          ATB TAROT IA — Portal de Leituras Místicas
+        <p className="text-center text-[#9a9077] text-sm mt-6">
+          {t.footerBrand}
         </p>
       </div>
     </main>

@@ -5,12 +5,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase";
+import { useUiLocale, LOCALE_LABELS, type UiLocale } from "@/lib/use-locale";
 import {
   profileSchema,
   type ProfileInput,
   SIGNOS,
   CATEGORIAS_GUIA,
   type CategoriaGuia,
+  type Signo,
 } from "@/lib/validators";
 
 interface UserProfile {
@@ -42,8 +44,371 @@ interface ChatMessage {
   content: string;
 }
 
+type DashboardDict = {
+  loading: string;
+  logout: string;
+  hello: string;
+  welcome: string;
+  readingsOne: string;
+  readingsMany: string;
+  inMonth: string;
+  profileIncompleteTitle: string;
+  profileIncompleteText: string;
+  goToProfile: string;
+  tabLeitura: string;
+  tabChat: string;
+  tabGuia: string;
+  tabHistorico: string;
+  tabPerfil: string;
+  leituraTitle: string;
+  leituraSubtitle: string;
+  perguntaLabel: string;
+  perguntaHint: string;
+  perguntaPlaceholder: string;
+  noCreditsLong: string;
+  completeProfileFirst: string;
+  consultingCards: string;
+  noReadingsBtn: string;
+  requestReadingBtn: string;
+  yourReading: string;
+  sentWhatsapp: string;
+  errReading: string;
+  errConnection: string;
+  chatTitle: string;
+  chatSubtitle: string;
+  chatCredits: string;
+  chatMsgs: string;
+  chatEmpty: string;
+  chatReceiving: string;
+  errChat: string;
+  chatBuyText: string;
+  buy1: string;
+  buy3: string;
+  buy7: string;
+  chatPlaceholder: string;
+  send: string;
+  guiaTitle: string;
+  guiaSubtitle: string;
+  guiaNoCredits: string;
+  historicoTitle: string;
+  historicoEmpty: string;
+  verLeitura: string;
+  recolher: string;
+  whatsappOk: string;
+  perfilTitle: string;
+  perfilSubtitle: string;
+  nomeLabel: string;
+  nomePlaceholder: string;
+  signoLabel: string;
+  signoSelect: string;
+  dataLabel: string;
+  whatsLabel: string;
+  whatsHint: string;
+  whatsPlaceholder: string;
+  errSaveProfile: string;
+  errConnectionShort: string;
+  profileSaved: string;
+  saving: string;
+  saveProfile: string;
+  signoLabels: Record<Signo, string>;
+  guiaLabels: Record<CategoriaGuia, string>;
+};
+
+const DICT: Record<UiLocale, DashboardDict> = {
+  "pt-BR": {
+    loading: "Consultando os astros...",
+    logout: "Sair",
+    hello: "Olá",
+    welcome: "Bem-vinda(o) ao ATB TAROT IA",
+    readingsOne: "leitura disponível",
+    readingsMany: "leituras disponíveis",
+    inMonth: "em",
+    profileIncompleteTitle: "Complete seu perfil",
+    profileIncompleteText:
+      "para solicitar leituras. Precisamos do seu nome, signo, data de nascimento e WhatsApp.",
+    goToProfile: "Ir para Perfil",
+    tabLeitura: "✦ Solicitar Leitura",
+    tabChat: "💬 Chat com ATB",
+    tabGuia: "🌿 Guia de Vícios",
+    tabHistorico: "Histórico",
+    tabPerfil: "Meu Perfil",
+    leituraTitle: "Consultar ATB",
+    leituraSubtitle:
+      "ATB irá revelar as cartas do destino especialmente para você e entregar sua leitura no WhatsApp.",
+    perguntaLabel: "Pergunta opcional",
+    perguntaHint: "(deixe em branco para uma leitura geral)",
+    perguntaPlaceholder: "O que você gostaria de perguntar às cartas?",
+    noCreditsLong:
+      "Você utilizou todas as suas leituras deste mês. Seus créditos renovam automaticamente no início do próximo ciclo.",
+    completeProfileFirst: "Complete seu perfil antes de solicitar uma leitura.",
+    consultingCards: "ATB está consultando as cartas...",
+    noReadingsBtn: "Sem leituras disponíveis este mês",
+    requestReadingBtn: "✦ Solicitar Minha Leitura",
+    yourReading: "Sua Leitura",
+    sentWhatsapp: "Enviada ao WhatsApp",
+    errReading: "Erro ao solicitar leitura. Tente novamente.",
+    errConnection: "Erro de conexão. Verifique sua internet e tente novamente.",
+    chatTitle: "💬 Chat com ATB",
+    chatSubtitle: "Converse ao vivo com a ATB e receba os sinais dos guias.",
+    chatCredits: "créditos",
+    chatMsgs: "msgs no mês",
+    chatEmpty: "Envie sua primeira mensagem para a ATB.",
+    chatReceiving: "✦ ATB está recebendo os sinais...",
+    errChat: "Erro ao falar com a ATB. Tente novamente.",
+    chatBuyText:
+      "Você não tem mensagens disponíveis. Compre perguntas avulsas para continuar conversando com a ATB:",
+    buy1: "1 pergunta",
+    buy3: "3 perguntas",
+    buy7: "7 perguntas",
+    chatPlaceholder: "Escreva sua mensagem para a ATB...",
+    send: "Enviar",
+    guiaTitle: "Guia de Vícios",
+    guiaSubtitle:
+      "Escolha uma categoria e ATB revelará as cartas para iluminar seu caminho de cura e transformação.",
+    guiaNoCredits: "Você utilizou todas as suas leituras deste mês.",
+    historicoTitle: "Últimas Leituras",
+    historicoEmpty: "Você ainda não tem leituras. Solicite sua primeira!",
+    verLeitura: "Ver leitura",
+    recolher: "Recolher",
+    whatsappOk: "✓ WhatsApp",
+    perfilTitle: "Meu Perfil",
+    perfilSubtitle:
+      "Mantenha seus dados atualizados para que ATB possa personalizar suas leituras com precisão.",
+    nomeLabel: "Nome completo",
+    nomePlaceholder: "Seu nome",
+    signoLabel: "Signo",
+    signoSelect: "Selecione seu signo",
+    dataLabel: "Data de nascimento",
+    whatsLabel: "WhatsApp",
+    whatsHint: "(formato internacional: +5511999999999)",
+    whatsPlaceholder: "+5511999999999",
+    errSaveProfile: "Erro ao salvar perfil.",
+    errConnectionShort: "Erro de conexão. Tente novamente.",
+    profileSaved: "✓ Perfil atualizado com sucesso!",
+    saving: "Salvando...",
+    saveProfile: "Salvar Perfil",
+    signoLabels: {
+      "Áries": "Áries",
+      Touro: "Touro",
+      "Gêmeos": "Gêmeos",
+      "Câncer": "Câncer",
+      "Leão": "Leão",
+      Virgem: "Virgem",
+      Libra: "Libra",
+      "Escorpião": "Escorpião",
+      "Sagitário": "Sagitário",
+      "Capricórnio": "Capricórnio",
+      "Aquário": "Aquário",
+      Peixes: "Peixes",
+    },
+    guiaLabels: {
+      "Alimentação Emocional": "Alimentação Emocional",
+      "Relacionamentos Tóxicos": "Relacionamentos Tóxicos",
+      "Procrastinação": "Procrastinação",
+      "Vício em Redes Sociais": "Vício em Redes Sociais",
+      "Ansiedade Crônica": "Ansiedade Crônica",
+      Cigarro: "Cigarro",
+      "Álcool": "Álcool",
+    },
+  },
+  en: {
+    loading: "Consulting the stars...",
+    logout: "Sign out",
+    hello: "Hello",
+    welcome: "Welcome to ATB TAROT IA",
+    readingsOne: "reading available",
+    readingsMany: "readings available",
+    inMonth: "in",
+    profileIncompleteTitle: "Complete your profile",
+    profileIncompleteText:
+      "to request readings. We need your name, zodiac sign, date of birth and WhatsApp.",
+    goToProfile: "Go to Profile",
+    tabLeitura: "✦ Request a Reading",
+    tabChat: "💬 Chat with ATB",
+    tabGuia: "🌿 Habits Guide",
+    tabHistorico: "History",
+    tabPerfil: "My Profile",
+    leituraTitle: "Consult ATB",
+    leituraSubtitle:
+      "ATB will reveal the cards of destiny especially for you, dear soul, and deliver your reading on WhatsApp.",
+    perguntaLabel: "Optional question",
+    perguntaHint: "(leave blank for a general reading)",
+    perguntaPlaceholder: "What would you like to ask the cards?",
+    noCreditsLong:
+      "You have used all your readings for this month. Your credits renew automatically at the start of the next cycle.",
+    completeProfileFirst: "Please complete your profile before requesting a reading.",
+    consultingCards: "ATB is consulting the cards...",
+    noReadingsBtn: "No readings available this month",
+    requestReadingBtn: "✦ Request My Reading",
+    yourReading: "Your Reading",
+    sentWhatsapp: "Sent to WhatsApp",
+    errReading: "Could not request the reading. Please try again.",
+    errConnection: "Connection error. Please check your internet and try again.",
+    chatTitle: "💬 Chat with ATB",
+    chatSubtitle: "Talk live with ATB and receive the signs of the guides.",
+    chatCredits: "credits",
+    chatMsgs: "msgs this month",
+    chatEmpty: "Send your first message to ATB.",
+    chatReceiving: "✦ ATB is receiving the signs...",
+    errChat: "Could not reach ATB. Please try again.",
+    chatBuyText:
+      "You have no messages left. Buy single questions to keep talking with ATB:",
+    buy1: "1 question",
+    buy3: "3 questions",
+    buy7: "7 questions",
+    chatPlaceholder: "Write your message to ATB...",
+    send: "Send",
+    guiaTitle: "Habits Guide",
+    guiaSubtitle:
+      "Choose a category and ATB will reveal the cards to light your path of healing and transformation.",
+    guiaNoCredits: "You have used all your readings for this month.",
+    historicoTitle: "Recent Readings",
+    historicoEmpty: "You have no readings yet. Request your first one!",
+    verLeitura: "View reading",
+    recolher: "Hide",
+    whatsappOk: "✓ WhatsApp",
+    perfilTitle: "My Profile",
+    perfilSubtitle:
+      "Keep your details up to date so ATB can personalize your readings with precision.",
+    nomeLabel: "Full name",
+    nomePlaceholder: "Your name",
+    signoLabel: "Zodiac sign",
+    signoSelect: "Select your sign",
+    dataLabel: "Date of birth",
+    whatsLabel: "WhatsApp",
+    whatsHint: "(international format: +15551234567)",
+    whatsPlaceholder: "+15551234567",
+    errSaveProfile: "Could not save your profile.",
+    errConnectionShort: "Connection error. Please try again.",
+    profileSaved: "✓ Profile updated successfully!",
+    saving: "Saving...",
+    saveProfile: "Save Profile",
+    signoLabels: {
+      "Áries": "Aries",
+      Touro: "Taurus",
+      "Gêmeos": "Gemini",
+      "Câncer": "Cancer",
+      "Leão": "Leo",
+      Virgem: "Virgo",
+      Libra: "Libra",
+      "Escorpião": "Scorpio",
+      "Sagitário": "Sagittarius",
+      "Capricórnio": "Capricorn",
+      "Aquário": "Aquarius",
+      Peixes: "Pisces",
+    },
+    guiaLabels: {
+      "Alimentação Emocional": "Emotional Eating",
+      "Relacionamentos Tóxicos": "Toxic Relationships",
+      "Procrastinação": "Procrastination",
+      "Vício em Redes Sociais": "Social Media Addiction",
+      "Ansiedade Crônica": "Chronic Anxiety",
+      Cigarro: "Smoking",
+      "Álcool": "Alcohol",
+    },
+  },
+  es: {
+    loading: "Consultando los astros...",
+    logout: "Salir",
+    hello: "Hola",
+    welcome: "Bienvenida(o) a ATB TAROT IA",
+    readingsOne: "lectura disponible",
+    readingsMany: "lecturas disponibles",
+    inMonth: "en",
+    profileIncompleteTitle: "Completa tu perfil",
+    profileIncompleteText:
+      "para pedir lecturas. Necesitamos tu nombre, signo, fecha de nacimiento y WhatsApp.",
+    goToProfile: "Ir al Perfil",
+    tabLeitura: "✦ Pedir Lectura",
+    tabChat: "💬 Chat con ATB",
+    tabGuia: "🌿 Guía de Vicios",
+    tabHistorico: "Historial",
+    tabPerfil: "Mi Perfil",
+    leituraTitle: "Consultar a ATB",
+    leituraSubtitle:
+      "ATB revelará las cartas del destino especialmente para ti, querida alma, y entregará tu lectura por WhatsApp.",
+    perguntaLabel: "Pregunta opcional",
+    perguntaHint: "(déjala en blanco para una lectura general)",
+    perguntaPlaceholder: "¿Qué te gustaría preguntarle a las cartas?",
+    noCreditsLong:
+      "Ya usaste todas tus lecturas de este mes. Tus créditos se renuevan automáticamente al inicio del próximo ciclo.",
+    completeProfileFirst: "Completa tu perfil antes de pedir una lectura.",
+    consultingCards: "ATB está consultando las cartas...",
+    noReadingsBtn: "Sin lecturas disponibles este mes",
+    requestReadingBtn: "✦ Pedir Mi Lectura",
+    yourReading: "Tu Lectura",
+    sentWhatsapp: "Enviada al WhatsApp",
+    errReading: "Error al pedir la lectura. Inténtalo de nuevo.",
+    errConnection: "Error de conexión. Revisa tu internet e inténtalo de nuevo.",
+    chatTitle: "💬 Chat con ATB",
+    chatSubtitle: "Conversa en vivo con ATB y recibe las señales de los guías.",
+    chatCredits: "créditos",
+    chatMsgs: "msjs al mes",
+    chatEmpty: "Envía tu primer mensaje a ATB.",
+    chatReceiving: "✦ ATB está recibiendo las señales...",
+    errChat: "Error al hablar con ATB. Inténtalo de nuevo.",
+    chatBuyText:
+      "No tienes mensajes disponibles. Compra preguntas sueltas para seguir conversando con ATB:",
+    buy1: "1 pregunta",
+    buy3: "3 preguntas",
+    buy7: "7 preguntas",
+    chatPlaceholder: "Escribe tu mensaje para ATB...",
+    send: "Enviar",
+    guiaTitle: "Guía de Vicios",
+    guiaSubtitle:
+      "Elige una categoría y ATB revelará las cartas para iluminar tu camino de sanación y transformación.",
+    guiaNoCredits: "Ya usaste todas tus lecturas de este mes.",
+    historicoTitle: "Últimas Lecturas",
+    historicoEmpty: "Aún no tienes lecturas. ¡Pide la primera!",
+    verLeitura: "Ver lectura",
+    recolher: "Ocultar",
+    whatsappOk: "✓ WhatsApp",
+    perfilTitle: "Mi Perfil",
+    perfilSubtitle:
+      "Mantén tus datos actualizados para que ATB pueda personalizar tus lecturas con precisión.",
+    nomeLabel: "Nombre completo",
+    nomePlaceholder: "Tu nombre",
+    signoLabel: "Signo",
+    signoSelect: "Selecciona tu signo",
+    dataLabel: "Fecha de nacimiento",
+    whatsLabel: "WhatsApp",
+    whatsHint: "(formato internacional: +34612345678)",
+    whatsPlaceholder: "+34612345678",
+    errSaveProfile: "Error al guardar el perfil.",
+    errConnectionShort: "Error de conexión. Inténtalo de nuevo.",
+    profileSaved: "✓ ¡Perfil actualizado con éxito!",
+    saving: "Guardando...",
+    saveProfile: "Guardar Perfil",
+    signoLabels: {
+      "Áries": "Aries",
+      Touro: "Tauro",
+      "Gêmeos": "Géminis",
+      "Câncer": "Cáncer",
+      "Leão": "Leo",
+      Virgem: "Virgo",
+      Libra: "Libra",
+      "Escorpião": "Escorpio",
+      "Sagitário": "Sagitario",
+      "Capricórnio": "Capricornio",
+      "Aquário": "Acuario",
+      Peixes: "Piscis",
+    },
+    guiaLabels: {
+      "Alimentação Emocional": "Alimentación Emocional",
+      "Relacionamentos Tóxicos": "Relaciones Tóxicas",
+      "Procrastinação": "Procrastinación",
+      "Vício em Redes Sociais": "Adicción a las Redes Sociales",
+      "Ansiedade Crônica": "Ansiedad Crónica",
+      Cigarro: "Cigarrillo",
+      "Álcool": "Alcohol",
+    },
+  },
+};
+
 export default function DashboardPage() {
   const router = useRouter();
+  const [locale, setLocale] = useUiLocale();
+  const t = DICT[locale];
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [credits, setCredits] = useState<Credits>({ leituras_restantes: 0, mes_referencia: null });
   const [readings, setReadings] = useState<Reading[]>([]);
@@ -140,7 +505,7 @@ export default function DashboardPage() {
       };
 
       if (!res.ok || !data.success) {
-        setReadingError(data.error ?? "Erro ao solicitar leitura. Tente novamente.");
+        setReadingError(data.error ?? t.errReading);
         return;
       }
 
@@ -154,7 +519,7 @@ export default function DashboardPage() {
       // Recarregar histórico
       setTimeout(() => fetchData(), 1500);
     } catch {
-      setReadingError("Erro de conexão. Verifique sua internet e tente novamente.");
+      setReadingError(t.errConnection);
     } finally {
       setRequestingReading(false);
     }
@@ -179,7 +544,7 @@ export default function DashboardPage() {
       };
 
       if (!res.ok) {
-        setProfileApiError(result.error ?? "Erro ao salvar perfil.");
+        setProfileApiError(result.error ?? t.errSaveProfile);
         return;
       }
 
@@ -187,7 +552,7 @@ export default function DashboardPage() {
       setTimeout(() => setProfileSuccess(false), 3000);
       fetchData();
     } catch {
-      setProfileApiError("Erro de conexão. Tente novamente.");
+      setProfileApiError(t.errConnectionShort);
     } finally {
       setSavingProfile(false);
     }
@@ -214,7 +579,7 @@ export default function DashboardPage() {
       };
 
       if (!res.ok || !data.success) {
-        setGuiaError(data.error ?? "Erro ao solicitar leitura. Tente novamente.");
+        setGuiaError(data.error ?? t.errReading);
         return;
       }
 
@@ -226,7 +591,7 @@ export default function DashboardPage() {
 
       setTimeout(() => fetchData(), 1500);
     } catch {
-      setGuiaError("Erro de conexão. Verifique sua internet e tente novamente.");
+      setGuiaError(t.errConnection);
     } finally {
       setGuiaLoading(false);
     }
@@ -276,7 +641,7 @@ export default function DashboardPage() {
         const data = (await res.json().catch(() => null)) as {
           error?: string;
         } | null;
-        setChatError(data?.error ?? "Erro ao falar com a ATB. Tente novamente.");
+        setChatError(data?.error ?? t.errChat);
         // remove a mensagem otimista
         setChatMessages((prev) => prev.slice(0, -1));
         return;
@@ -311,7 +676,7 @@ export default function DashboardPage() {
         typeof prev === "number" ? Math.max(0, prev - 1) : prev
       );
     } catch {
-      setChatError("Erro de conexão. Verifique sua internet e tente novamente.");
+      setChatError(t.errConnection);
     } finally {
       setChatSending(false);
     }
@@ -331,7 +696,7 @@ export default function DashboardPage() {
       <main className="min-h-screen bg-mystic-gradient stars-bg flex items-center justify-center">
         <div className="text-center">
           <div className="text-5xl animate-float mb-4">🔮</div>
-          <p className="text-[#c9a84c] font-serif">Consultando os astros...</p>
+          <p className="text-[#c9a84c] font-serif text-lg">{t.loading}</p>
         </div>
       </main>
     );
@@ -346,15 +711,29 @@ export default function DashboardPage() {
             <span className="gold-gradient-text font-bold">ATB</span>
             <span className="text-[#e8e0d0] ml-1">TAROT IA</span>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-[#555] text-sm hidden sm:block">
+          <div className="flex items-center gap-2 sm:gap-4">
+            {(Object.keys(LOCALE_LABELS) as UiLocale[]).map((l) => (
+              <button
+                key={l}
+                onClick={() => setLocale(l)}
+                aria-label={LOCALE_LABELS[l]}
+                className={`px-3 py-2 rounded-lg border text-sm font-semibold transition-colors ${
+                  locale === l
+                    ? "border-[#c9a84c] text-[#c9a84c] bg-[#c9a84c]/10"
+                    : "border-[#3a3a3a] text-[#b5ab97] hover:text-[#c9a84c]"
+                }`}
+              >
+                {l === "pt-BR" ? "PT" : l.toUpperCase()}
+              </button>
+            ))}
+            <span className="text-[#aca189] text-base hidden sm:block">
               {profile?.email}
             </span>
             <button
               onClick={handleLogout}
-              className="text-[#555] hover:text-[#888] text-sm transition-colors"
+              className="text-[#aca189] hover:text-[#c2b9a4] text-base transition-colors"
             >
-              Sair
+              {t.logout}
             </button>
           </div>
         </div>
@@ -365,13 +744,13 @@ export default function DashboardPage() {
         <div className="mystic-card p-6 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h1 className="font-serif text-2xl text-[#c9a84c] mb-1">
-              {profile?.nome ? `Olá, ${profile.nome}` : "Bem-vinda ao ATB TAROT IA"}
+              {profile?.nome ? `${t.hello}, ${profile.nome}` : t.welcome}
             </h1>
-            <p className="text-[#666] text-sm">
+            <p className="text-[#b5ab97] text-base">
               {profile?.signo && `✦ ${profile.signo}`}
               {profile?.signo && profile?.data_nascimento && " · "}
               {profile?.data_nascimento &&
-                new Date(profile.data_nascimento).toLocaleDateString("pt-BR", {
+                new Date(profile.data_nascimento).toLocaleDateString(locale, {
                   day: "2-digit",
                   month: "long",
                   year: "numeric",
@@ -382,11 +761,11 @@ export default function DashboardPage() {
             <div className="text-3xl font-serif gold-gradient-text font-bold">
               {credits.leituras_restantes}
             </div>
-            <div className="text-[#666] text-xs">
-              {credits.leituras_restantes === 1 ? "leitura disponível" : "leituras disponíveis"}
+            <div className="text-[#b5ab97] text-base">
+              {credits.leituras_restantes === 1 ? t.readingsOne : t.readingsMany}
               {credits.mes_referencia && (
-                <span className="block text-[#444]">
-                  em {credits.mes_referencia}
+                <span className="block text-[#a39878]">
+                  {t.inMonth} {credits.mes_referencia}
                 </span>
               )}
             </div>
@@ -396,14 +775,13 @@ export default function DashboardPage() {
         {/* Aviso de perfil incompleto */}
         {!profileComplete && (
           <div className="bg-[#c9a84c]/10 border border-[#c9a84c]/30 rounded-lg p-4 mb-6">
-            <p className="text-[#c9a84c] text-sm">
-              <strong>Complete seu perfil</strong> para solicitar leituras. Precisamos do
-              seu nome, signo, data de nascimento e WhatsApp.{" "}
+            <p className="text-[#c9a84c] text-base">
+              <strong>{t.profileIncompleteTitle}</strong> {t.profileIncompleteText}{" "}
               <button
                 className="underline"
                 onClick={() => setActiveTab("perfil")}
               >
-                Ir para Perfil
+                {t.goToProfile}
               </button>
             </p>
           </div>
@@ -413,20 +791,20 @@ export default function DashboardPage() {
         <div className="flex gap-1 mb-8 bg-[#111111] p-1 rounded-lg border border-[#2a2a2a]">
           {(
             [
-              { id: "leitura", label: "✦ Solicitar Leitura" },
-              { id: "chat", label: "💬 Chat com ATB" },
-              { id: "guia", label: "🌿 Guia de Vícios" },
-              { id: "historico", label: "Histórico" },
-              { id: "perfil", label: "Meu Perfil" },
+              { id: "leitura", label: t.tabLeitura },
+              { id: "chat", label: t.tabChat },
+              { id: "guia", label: t.tabGuia },
+              { id: "historico", label: t.tabHistorico },
+              { id: "perfil", label: t.tabPerfil },
             ] as { id: TabType; label: string }[]
           ).map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
+              className={`flex-1 py-2 px-3 rounded-md text-base font-medium transition-all ${
                 activeTab === tab.id
                   ? "bg-[#1a1a1a] text-[#c9a84c] border border-[#c9a84c]/30 shadow-gold"
-                  : "text-[#555] hover:text-[#888]"
+                  : "text-[#aca189] hover:text-[#c2b9a4]"
               }`}
             >
               {tab.label}
@@ -441,28 +819,27 @@ export default function DashboardPage() {
               <div className="text-center mb-8">
                 <div className="text-5xl mb-4 animate-float">🔮</div>
                 <h2 className="font-serif text-2xl text-[#c9a84c] mb-2">
-                  Consultar ATB
+                  {t.leituraTitle}
                 </h2>
-                <p className="text-[#666] text-sm max-w-md mx-auto">
-                  ATB irá revelar as cartas do destino especialmente para você
-                  e entregar sua leitura no WhatsApp.
+                <p className="text-[#b5ab97] text-base max-w-md mx-auto">
+                  {t.leituraSubtitle}
                 </p>
               </div>
 
               {/* Pergunta opcional */}
               <div className="mb-6">
-                <label className="block text-sm text-[#888] mb-2">
-                  Pergunta opcional{" "}
-                  <span className="text-[#444] text-xs">(deixe em branco para uma leitura geral)</span>
+                <label className="block text-base text-[#c2b9a4] mb-2">
+                  {t.perguntaLabel}{" "}
+                  <span className="text-[#a39878] text-sm">{t.perguntaHint}</span>
                 </label>
                 <textarea
                   value={pergunta}
                   onChange={(e) => setPergunta(e.target.value.slice(0, 500))}
-                  placeholder="O que você gostaria de perguntar às cartas?"
+                  placeholder={t.perguntaPlaceholder}
                   className="input-mystic resize-none h-24"
                   disabled={requestingReading}
                 />
-                <p className="text-[#333] text-xs mt-1 text-right">
+                <p className="text-[#9a9077] text-sm mt-1 text-right">
                   {pergunta.length}/500
                 </p>
               </div>
@@ -470,9 +847,8 @@ export default function DashboardPage() {
               {/* Aviso de créditos zerados */}
               {credits.leituras_restantes === 0 && (
                 <div className="bg-[#8b0000]/20 border border-[#8b0000]/40 rounded-lg p-4 mb-6 text-center">
-                  <p className="text-red-400 text-sm">
-                    Você utilizou todas as suas leituras deste mês. Seus créditos
-                    renovam automaticamente no início do próximo ciclo.
+                  <p className="text-red-400 text-base">
+                    {t.noCreditsLong}
                   </p>
                 </div>
               )}
@@ -480,8 +856,8 @@ export default function DashboardPage() {
               {/* Aviso de perfil incompleto */}
               {!profileComplete && (
                 <div className="bg-[#8b0000]/20 border border-[#8b0000]/40 rounded-lg p-4 mb-6 text-center">
-                  <p className="text-red-400 text-sm">
-                    Complete seu perfil antes de solicitar uma leitura.
+                  <p className="text-red-400 text-base">
+                    {t.completeProfileFirst}
                   </p>
                 </div>
               )}
@@ -493,7 +869,7 @@ export default function DashboardPage() {
                   credits.leituras_restantes === 0 ||
                   !profileComplete
                 }
-                className="btn-gold w-full py-4 text-base"
+                className="btn-gold w-full py-4 text-lg"
               >
                 {requestingReading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -517,12 +893,12 @@ export default function DashboardPage() {
                         d="M4 12a8 8 0 018-8v8z"
                       />
                     </svg>
-                    ATB está consultando as cartas...
+                    {t.consultingCards}
                   </span>
                 ) : credits.leituras_restantes === 0 ? (
-                  "Sem leituras disponíveis este mês"
+                  t.noReadingsBtn
                 ) : (
-                  "✦ Solicitar Minha Leitura"
+                  t.requestReadingBtn
                 )}
               </button>
 
@@ -533,13 +909,13 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-2 mb-4">
                       <span className="text-[#c9a84c]">✦</span>
                       <h3 className="text-[#c9a84c] font-serif text-lg">
-                        Sua Leitura
+                        {t.yourReading}
                       </h3>
-                      <span className="text-[#555] text-xs ml-auto">
-                        Enviada ao WhatsApp
+                      <span className="text-[#aca189] text-sm ml-auto">
+                        {t.sentWhatsapp}
                       </span>
                     </div>
-                    <p className="text-[#e8e0d0]/90 text-sm leading-relaxed whitespace-pre-wrap font-serif italic">
+                    <p className="text-[#e8e0d0]/90 text-base leading-relaxed whitespace-pre-wrap font-serif italic">
                       {readingResult}
                     </p>
                   </div>
@@ -548,7 +924,7 @@ export default function DashboardPage() {
 
               {readingError && (
                 <div className="mt-6 bg-red-900/20 border border-red-800/40 rounded-lg p-4">
-                  <p className="text-red-400 text-sm">{readingError}</p>
+                  <p className="text-red-400 text-base">{readingError}</p>
                 </div>
               )}
             </div>
@@ -562,10 +938,10 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="font-serif text-2xl text-[#c9a84c]">
-                    💬 Chat com ATB
+                    {t.chatTitle}
                   </h2>
-                  <p className="text-[#666] text-sm mt-1">
-                    Converse ao vivo com a ATB e receba os sinais dos guias.
+                  <p className="text-[#b5ab97] text-base mt-1">
+                    {t.chatSubtitle}
                   </p>
                 </div>
                 {chatRemaining !== null && (
@@ -573,8 +949,8 @@ export default function DashboardPage() {
                     <div className="text-2xl font-serif gold-gradient-text font-bold">
                       {chatRemaining}
                     </div>
-                    <div className="text-[#555] text-xs">
-                      {chatUsingCredits ? "créditos" : "msgs no mês"}
+                    <div className="text-[#aca189] text-sm">
+                      {chatUsingCredits ? t.chatCredits : t.chatMsgs}
                     </div>
                   </div>
                 )}
@@ -586,8 +962,8 @@ export default function DashboardPage() {
                   <div className="h-full flex items-center justify-center text-center">
                     <div>
                       <div className="text-4xl mb-3 opacity-40">🔮</div>
-                      <p className="text-[#555] text-sm">
-                        Envie sua primeira mensagem para a ATB.
+                      <p className="text-[#aca189] text-base">
+                        {t.chatEmpty}
                       </p>
                     </div>
                   </div>
@@ -598,7 +974,7 @@ export default function DashboardPage() {
                       className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
                     >
                       <div
-                        className={`max-w-[85%] rounded-lg px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                        className={`max-w-[85%] rounded-lg px-4 py-3 text-base leading-relaxed whitespace-pre-wrap ${
                           m.role === "user"
                             ? "bg-[#c9a84c]/15 border border-[#c9a84c]/30 text-[#e8e0d0]"
                             : "bg-[#1a0a2e]/60 border border-[#2a2a2a] text-[#e8e0d0]/90 font-serif italic"
@@ -606,7 +982,7 @@ export default function DashboardPage() {
                       >
                         {m.content ||
                           (chatSending && i === chatMessages.length - 1
-                            ? "✦ ATB está recebendo os sinais..."
+                            ? t.chatReceiving
                             : "")}
                       </div>
                     </div>
@@ -616,34 +992,33 @@ export default function DashboardPage() {
 
               {chatError && (
                 <div className="bg-red-900/20 border border-red-800/40 rounded-lg p-3 mb-4">
-                  <p className="text-red-400 text-sm">{chatError}</p>
+                  <p className="text-red-400 text-base">{chatError}</p>
                 </div>
               )}
 
               {chatRemaining === 0 && (
                 <div className="bg-[#c9a84c]/10 border border-[#c9a84c]/30 rounded-lg p-4 mb-4 text-center">
-                  <p className="text-[#c9a84c] text-sm mb-3">
-                    Você não tem mensagens disponíveis. Compre perguntas avulsas
-                    para continuar conversando com a ATB:
+                  <p className="text-[#c9a84c] text-base mb-3">
+                    {t.chatBuyText}
                   </p>
                   <div className="flex flex-col sm:flex-row gap-2 justify-center">
                     <a
                       href="/api/checkout/pergunta1"
-                      className="text-xs border border-[#c9a84c]/40 text-[#c9a84c] px-4 py-2 rounded-lg hover:border-[#c9a84c] transition-colors"
+                      className="text-base border border-[#c9a84c]/40 text-[#c9a84c] px-4 py-2 rounded-lg hover:border-[#c9a84c] transition-colors"
                     >
-                      1 pergunta
+                      {t.buy1}
                     </a>
                     <a
                       href="/api/checkout/pergunta3"
-                      className="text-xs border border-[#c9a84c]/40 text-[#c9a84c] px-4 py-2 rounded-lg hover:border-[#c9a84c] transition-colors"
+                      className="text-base border border-[#c9a84c]/40 text-[#c9a84c] px-4 py-2 rounded-lg hover:border-[#c9a84c] transition-colors"
                     >
-                      3 perguntas
+                      {t.buy3}
                     </a>
                     <a
                       href="/api/checkout/pergunta7"
-                      className="text-xs btn-gold px-4 py-2 rounded-lg"
+                      className="text-base btn-gold px-4 py-2 rounded-lg"
                     >
-                      7 perguntas
+                      {t.buy7}
                     </a>
                   </div>
                 </div>
@@ -660,16 +1035,16 @@ export default function DashboardPage() {
                       handleSendChat();
                     }
                   }}
-                  placeholder="Escreva sua mensagem para a ATB..."
+                  placeholder={t.chatPlaceholder}
                   className="input-mystic resize-none h-14 flex-1"
                   disabled={chatSending || chatRemaining === 0}
                 />
                 <button
                   onClick={handleSendChat}
                   disabled={chatSending || !chatInput.trim() || chatRemaining === 0}
-                  className="btn-gold px-6 rounded-lg text-sm"
+                  className="btn-gold px-6 rounded-lg text-base"
                 >
-                  {chatSending ? "..." : "Enviar"}
+                  {chatSending ? "..." : t.send}
                 </button>
               </div>
             </div>
@@ -681,11 +1056,10 @@ export default function DashboardPage() {
           <div className="animate-fade-in">
             <div className="mb-6">
               <h2 className="font-serif text-xl text-[#c9a84c] mb-2">
-                Guia de Vícios
+                {t.guiaTitle}
               </h2>
-              <p className="text-[#666] text-sm">
-                Escolha uma categoria e ATB revelará as cartas para iluminar seu
-                caminho de cura e transformação.
+              <p className="text-[#b5ab97] text-base">
+                {t.guiaSubtitle}
               </p>
             </div>
 
@@ -717,11 +1091,11 @@ export default function DashboardPage() {
                   >
                     <div className="text-3xl mb-3">{icones[categoria]}</div>
                     <div className="font-serif text-[#c9a84c] text-base mb-1">
-                      {categoria}
+                      {t.guiaLabels[categoria]}
                     </div>
                     {guiaCategoria === categoria && guiaLoading && (
-                      <p className="text-[#555] text-xs">
-                        ATB está consultando as cartas...
+                      <p className="text-[#aca189] text-base">
+                        {t.consultingCards}
                       </p>
                     )}
                   </button>
@@ -731,7 +1105,7 @@ export default function DashboardPage() {
 
             {guiaError && (
               <div className="bg-red-900/20 border border-red-800/40 rounded-lg p-4 mb-6">
-                <p className="text-red-400 text-sm">{guiaError}</p>
+                <p className="text-red-400 text-base">{guiaError}</p>
               </div>
             )}
 
@@ -741,13 +1115,13 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-2 mb-4">
                     <span className="text-[#c9a84c]">✦</span>
                     <h3 className="text-[#c9a84c] font-serif text-lg">
-                      {guiaCategoria}
+                      {t.guiaLabels[guiaCategoria]}
                     </h3>
-                    <span className="text-[#555] text-xs ml-auto">
-                      Enviada ao WhatsApp
+                    <span className="text-[#aca189] text-sm ml-auto">
+                      {t.sentWhatsapp}
                     </span>
                   </div>
-                  <p className="text-[#e8e0d0]/90 text-sm leading-relaxed whitespace-pre-wrap font-serif italic">
+                  <p className="text-[#e8e0d0]/90 text-base leading-relaxed whitespace-pre-wrap font-serif italic">
                     {guiaResult}
                   </p>
                 </div>
@@ -756,16 +1130,16 @@ export default function DashboardPage() {
 
             {credits.leituras_restantes === 0 && (
               <div className="bg-[#8b0000]/20 border border-[#8b0000]/40 rounded-lg p-4 text-center">
-                <p className="text-red-400 text-sm">
-                  Você utilizou todas as suas leituras deste mês.
+                <p className="text-red-400 text-base">
+                  {t.guiaNoCredits}
                 </p>
               </div>
             )}
 
             {!profileComplete && (
               <div className="bg-[#8b0000]/20 border border-[#8b0000]/40 rounded-lg p-4 text-center">
-                <p className="text-red-400 text-sm">
-                  Complete seu perfil antes de solicitar uma leitura.
+                <p className="text-red-400 text-base">
+                  {t.completeProfileFirst}
                 </p>
               </div>
             )}
@@ -776,14 +1150,14 @@ export default function DashboardPage() {
         {activeTab === "historico" && (
           <div className="animate-fade-in">
             <h2 className="font-serif text-xl text-[#c9a84c] mb-6">
-              Últimas Leituras
+              {t.historicoTitle}
             </h2>
 
             {readings.length === 0 ? (
               <div className="mystic-card p-12 text-center">
                 <div className="text-4xl mb-4 opacity-30">📜</div>
-                <p className="text-[#555]">
-                  Você ainda não tem leituras. Solicite sua primeira!
+                <p className="text-[#aca189] text-base">
+                  {t.historicoEmpty}
                 </p>
               </div>
             ) : (
@@ -793,9 +1167,9 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <span className="text-[#c9a84c]">✦</span>
-                        <span className="text-[#e8e0d0] text-sm font-medium">
+                        <span className="text-[#e8e0d0] text-base font-medium">
                           {new Date(reading.created_at).toLocaleDateString(
-                            "pt-BR",
+                            locale,
                             {
                               day: "2-digit",
                               month: "long",
@@ -808,8 +1182,8 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex items-center gap-3">
                         {reading.enviado_whatsapp && (
-                          <span className="text-green-500/70 text-xs">
-                            ✓ WhatsApp
+                          <span className="text-green-500/70 text-sm">
+                            {t.whatsappOk}
                           </span>
                         )}
                         <button
@@ -818,23 +1192,23 @@ export default function DashboardPage() {
                               expandedReading === reading.id ? null : reading.id
                             )
                           }
-                          className="text-[#555] hover:text-[#c9a84c] text-xs transition-colors"
+                          className="text-[#aca189] hover:text-[#c9a84c] text-base transition-colors"
                         >
-                          {expandedReading === reading.id ? "Recolher" : "Ver leitura"}
+                          {expandedReading === reading.id ? t.recolher : t.verLeitura}
                         </button>
                       </div>
                     </div>
 
                     {expandedReading === reading.id && (
                       <div className="mt-4 pt-4 border-t border-[#2a2a2a] animate-fade-in">
-                        <p className="text-[#e8e0d0]/80 text-sm leading-relaxed whitespace-pre-wrap font-serif italic">
+                        <p className="text-[#e8e0d0]/80 text-base leading-relaxed whitespace-pre-wrap font-serif italic">
                           {reading.resposta_ia}
                         </p>
                       </div>
                     )}
 
                     {expandedReading !== reading.id && (
-                      <p className="text-[#555] text-xs mt-1 line-clamp-2 italic">
+                      <p className="text-[#aca189] text-sm mt-1 line-clamp-2 italic">
                         {reading.resposta_ia?.substring(0, 120)}...
                       </p>
                     )}
@@ -849,39 +1223,38 @@ export default function DashboardPage() {
         {activeTab === "perfil" && (
           <div className="animate-fade-in max-w-xl">
             <h2 className="font-serif text-xl text-[#c9a84c] mb-6">
-              Meu Perfil
+              {t.perfilTitle}
             </h2>
 
             <div className="mystic-card p-8">
-              <p className="text-[#666] text-sm mb-6">
-                Mantenha seus dados atualizados para que ATB possa personalizar
-                suas leituras com precisão.
+              <p className="text-[#b5ab97] text-base mb-6">
+                {t.perfilSubtitle}
               </p>
 
               <form onSubmit={handleSubmit(onProfileSubmit)} noValidate>
                 {/* Nome */}
                 <div className="mb-5">
-                  <label htmlFor="nome" className="block text-sm text-[#888] mb-2">
-                    Nome completo
+                  <label htmlFor="nome" className="block text-base text-[#c2b9a4] mb-2">
+                    {t.nomeLabel}
                   </label>
                   <input
                     id="nome"
                     type="text"
                     autoComplete="name"
-                    placeholder="Seu nome"
+                    placeholder={t.nomePlaceholder}
                     className="input-mystic"
                     {...register("nome")}
                     disabled={savingProfile}
                   />
                   {errors.nome && (
-                    <p className="text-red-400 text-xs mt-1">{errors.nome.message}</p>
+                    <p className="text-red-400 text-base mt-1">{errors.nome.message}</p>
                   )}
                 </div>
 
                 {/* Signo */}
                 <div className="mb-5">
-                  <label htmlFor="signo" className="block text-sm text-[#888] mb-2">
-                    Signo
+                  <label htmlFor="signo" className="block text-base text-[#c2b9a4] mb-2">
+                    {t.signoLabel}
                   </label>
                   <select
                     id="signo"
@@ -889,15 +1262,15 @@ export default function DashboardPage() {
                     {...register("signo")}
                     disabled={savingProfile}
                   >
-                    <option value="">Selecione seu signo</option>
+                    <option value="">{t.signoSelect}</option>
                     {SIGNOS.map((s) => (
                       <option key={s} value={s}>
-                        {s}
+                        {t.signoLabels[s]}
                       </option>
                     ))}
                   </select>
                   {errors.signo && (
-                    <p className="text-red-400 text-xs mt-1">{errors.signo.message}</p>
+                    <p className="text-red-400 text-base mt-1">{errors.signo.message}</p>
                   )}
                 </div>
 
@@ -905,9 +1278,9 @@ export default function DashboardPage() {
                 <div className="mb-5">
                   <label
                     htmlFor="data_nascimento"
-                    className="block text-sm text-[#888] mb-2"
+                    className="block text-base text-[#c2b9a4] mb-2"
                   >
-                    Data de nascimento
+                    {t.dataLabel}
                   </label>
                   <input
                     id="data_nascimento"
@@ -917,7 +1290,7 @@ export default function DashboardPage() {
                     disabled={savingProfile}
                   />
                   {errors.data_nascimento && (
-                    <p className="text-red-400 text-xs mt-1">
+                    <p className="text-red-400 text-base mt-1">
                       {errors.data_nascimento.message}
                     </p>
                   )}
@@ -927,24 +1300,24 @@ export default function DashboardPage() {
                 <div className="mb-6">
                   <label
                     htmlFor="whatsapp"
-                    className="block text-sm text-[#888] mb-2"
+                    className="block text-base text-[#c2b9a4] mb-2"
                   >
-                    WhatsApp{" "}
-                    <span className="text-[#444] text-xs">
-                      (formato internacional: +5511999999999)
+                    {t.whatsLabel}{" "}
+                    <span className="text-[#a39878] text-sm">
+                      {t.whatsHint}
                     </span>
                   </label>
                   <input
                     id="whatsapp"
                     type="tel"
                     autoComplete="tel"
-                    placeholder="+5511999999999"
+                    placeholder={t.whatsPlaceholder}
                     className="input-mystic"
                     {...register("whatsapp")}
                     disabled={savingProfile}
                   />
                   {errors.whatsapp && (
-                    <p className="text-red-400 text-xs mt-1">
+                    <p className="text-red-400 text-base mt-1">
                       {errors.whatsapp.message}
                     </p>
                   )}
@@ -952,14 +1325,14 @@ export default function DashboardPage() {
 
                 {profileApiError && (
                   <div className="bg-red-900/20 border border-red-800/40 rounded-lg p-3 mb-4">
-                    <p className="text-red-400 text-sm">{profileApiError}</p>
+                    <p className="text-red-400 text-base">{profileApiError}</p>
                   </div>
                 )}
 
                 {profileSuccess && (
                   <div className="bg-green-900/20 border border-green-800/40 rounded-lg p-3 mb-4">
-                    <p className="text-green-400 text-sm">
-                      ✓ Perfil atualizado com sucesso!
+                    <p className="text-green-400 text-base">
+                      {t.profileSaved}
                     </p>
                   </div>
                 )}
@@ -967,9 +1340,9 @@ export default function DashboardPage() {
                 <button
                   type="submit"
                   disabled={savingProfile}
-                  className="btn-gold w-full py-3"
+                  className="btn-gold w-full py-3 text-base"
                 >
-                  {savingProfile ? "Salvando..." : "Salvar Perfil"}
+                  {savingProfile ? t.saving : t.saveProfile}
                 </button>
               </form>
             </div>
