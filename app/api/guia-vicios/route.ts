@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   const ipRl = await checkRateLimit(`guia_ip:${ipAddress}`);
   if (!ipRl.success) {
     return NextResponse.json(
-      { error: "Muitas solicitações. Tente novamente em alguns instantes." },
+      { error: "Calma, minha querida alma... respira um instante e tenta de novo." },
       {
         status: 429,
         headers: {
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Limite de solicitações por hora atingido. Tente novamente mais tarde.",
+          "Você já me pediu muitas leituras nesta hora. Deixa a energia descansar e volta mais tarde.",
       },
       {
         status: 429,
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Assinatura inativa. Assine o ATB TAROT IA para solicitar leituras.",
+          "Sua assinatura está pausada. Reative para eu voltar a ler as cartas para você.",
       },
       { status: 403 }
     );
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Você não tem leituras disponíveis este mês. Aguarde a renovação no próximo ciclo.",
+          "Suas leituras deste mês acabaram, minha querida alma. No próximo ciclo eu te espero de volta.",
       },
       { status: 403 }
     );
@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Complete seu perfil (nome, signo e data de nascimento) antes de solicitar uma leitura.",
+          "Preciso te conhecer primeiro: preencha seu nome, signo e data de nascimento no perfil.",
       },
       { status: 400 }
     );
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
 
   if (!userProfile.whatsapp) {
     return NextResponse.json(
-      { error: "Cadastre seu WhatsApp no perfil para receber a leitura." },
+      { error: "Deixe seu WhatsApp no perfil para eu poder te enviar a leitura." },
       { status: 400 }
     );
   }
@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Não foi possível processar sua solicitação. Verifique seus créditos e tente novamente.",
+          "Algo se atravessou no caminho. Confira suas leituras disponíveis e tenta de novo.",
       },
       { status: 409 }
     );
@@ -228,7 +228,7 @@ export async function POST(request: NextRequest) {
       .eq("leituras_restantes", credits.leituras_restantes - 1);
 
     return NextResponse.json(
-      { error: "Erro ao gerar sua leitura. Tente novamente." },
+      { error: "As cartas não se abriram agora... me pede de novo em um instante." },
       { status: 500 }
     );
   }

@@ -5,13 +5,14 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL ?? "https://atbtartot.com"
   ),
-  title: "ATB TAROT IA — Leituras Místicas Personalizadas por IA",
+  title: "ATB TAROT — Leituras Místicas Personalizadas",
   description:
-    "Receba leituras de tarot profundas e personalizadas diretamente no seu WhatsApp. Powered by ATB TAROT IA.",
-  keywords: "tarot, leitura de tarot, tarot online, tarot IA, ATB TAROT",
+    "Receba leituras de tarot profundas e personalizadas da ATB, direto no seu WhatsApp.",
+  keywords:
+    "tarot, leitura de tarot, tarot online, tarotista, ATB TAROT, limpeza espiritual",
   robots: "index, follow",
   openGraph: {
-    title: "ATB TAROT IA — A mensagem que tocou seu coração era para você",
+    title: "ATB TAROT — A mensagem que tocou seu coração era para você",
     description:
       "Leituras de tarot, chat com a ATB e Limpeza Espiritual — no seu idioma, direto no seu celular.",
     type: "website",
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
         url: "/images/og-share.jpg",
         width: 1536,
         height: 1024,
-        alt: "ATB TAROT IA",
+        alt: "ATB TAROT",
       },
     ],
   },

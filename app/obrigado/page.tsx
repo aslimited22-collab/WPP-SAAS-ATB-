@@ -80,7 +80,7 @@ export default async function ObrigadoPage({
         <div className="mystic-card p-8 border border-[#c9a84c]/30 mb-8">
           <p className="text-[#e8e0d0]/80 leading-relaxed mb-4">
             {t.body1}{" "}
-            <strong className="text-[#c9a84c]">ATB TAROT IA</strong>.
+            <strong className="text-[#c9a84c]">ATB TAROT</strong>.
           </p>
           <p className="text-[#c2b9a4] text-sm leading-relaxed">{t.body2}</p>
         </div>

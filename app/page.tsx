@@ -59,7 +59,7 @@ const DICT: Record<
       },
       {
         title: "Receba o que seu coração pediu",
-        desc: "Faça sua pergunta e a ATB responde na hora, com o carinho de quem entende a sua vida.",
+        desc: "Faça sua pergunta e a ATB te responde pessoalmente, com o carinho de quem entende a sua vida.",
       },
     ],
     productsTitle: "O que está pesando no seu coração hoje?",
@@ -95,7 +95,7 @@ const DICT: Record<
       "Cancele a assinatura quando quiser, sem ligação e sem perguntas",
     ],
     disclaimer:
-      "As leituras do ATB TAROT IA têm caráter de entretenimento e reflexão. Não substituem aconselhamento profissional.",
+      "As leituras do ATB TAROT têm caráter de entretenimento e reflexão. Não substituem aconselhamento profissional.",
   },
   en: {
     enter: "Sign in",
@@ -116,7 +116,7 @@ const DICT: Record<
       },
       {
         title: "Receive what your heart asked for",
-        desc: "Ask your question and ATB answers right away, with the warmth of someone who understands your life.",
+        desc: "Ask your question and ATB answers you personally, with the warmth of someone who understands your life.",
       },
     ],
     productsTitle: "What is weighing on your heart today?",
@@ -152,7 +152,7 @@ const DICT: Record<
       "Cancel your subscription anytime, no calls, no questions",
     ],
     disclaimer:
-      "ATB TAROT AI readings are for entertainment and reflection. They do not replace professional advice.",
+      "ATB TAROT readings are for entertainment and reflection. They do not replace professional advice.",
   },
   es: {
     enter: "Entrar",
@@ -173,7 +173,7 @@ const DICT: Record<
       },
       {
         title: "Recibe lo que tu corazón pidió",
-        desc: "Haz tu pregunta y ATB responde al instante, con el cariño de quien entiende tu vida.",
+        desc: "Haz tu pregunta y ATB te responde personalmente, con el cariño de quien entiende tu vida.",
       },
     ],
     productsTitle: "¿Qué está pesando en tu corazón hoy?",
@@ -209,7 +209,7 @@ const DICT: Record<
       "Cancela tu suscripción cuando quieras, sin llamadas ni preguntas",
     ],
     disclaimer:
-      "Las lecturas de ATB TAROT IA son de entretenimiento y reflexión. No sustituyen el consejo profesional.",
+      "Las lecturas de ATB TAROT son de entretenimiento y reflexión. No sustituyen el consejo profesional.",
   },
   de: {
     enter: "Anmelden",
@@ -230,7 +230,7 @@ const DICT: Record<
       },
       {
         title: "Empfange, worum dein Herz gebeten hat",
-        desc: "Stelle deine Frage und ATB antwortet sofort, mit der Wärme von jemandem, der dein Leben versteht.",
+        desc: "Stelle deine Frage und ATB antwortet dir persönlich, mit der Wärme von jemandem, der dein Leben versteht.",
       },
     ],
     productsTitle: "Was liegt dir heute auf dem Herzen?",
@@ -266,7 +266,7 @@ const DICT: Record<
       "Abo jederzeit kündbar, ohne Anruf, ohne Fragen",
     ],
     disclaimer:
-      "Die Legungen von ATB TAROT IA dienen der Unterhaltung und Besinnung. Sie ersetzen keine professionelle Beratung.",
+      "Die Legungen von ATB TAROT dienen der Unterhaltung und Besinnung. Sie ersetzen keine professionelle Beratung.",
   },
   it: {
     enter: "Accedi",
@@ -287,7 +287,7 @@ const DICT: Record<
       },
       {
         title: "Ricevi ciò che il tuo cuore ha chiesto",
-        desc: "Fai la tua domanda e ATB risponde subito, con il calore di chi capisce la tua vita.",
+        desc: "Fai la tua domanda e ATB ti risponde personalmente, con il calore di chi capisce la tua vita.",
       },
     ],
     productsTitle: "Cosa ti pesa sul cuore oggi?",
@@ -323,7 +323,7 @@ const DICT: Record<
       "Disdici l'abbonamento quando vuoi, senza telefonate né domande",
     ],
     disclaimer:
-      "Le letture di ATB TAROT IA hanno scopo di intrattenimento e riflessione. Non sostituiscono una consulenza professionale.",
+      "Le letture di ATB TAROT hanno scopo di intrattenimento e riflessione. Non sostituiscono una consulenza professionale.",
   },
 };
 
@@ -337,7 +337,7 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 flex flex-wrap items-center justify-between gap-2 px-4 sm:px-6 py-3 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-[#2a2a2a]">
         <div className="font-serif text-xl">
           <span className="gold-gradient-text font-bold">ATB</span>
-          <span className="text-[#e8e0d0] ml-1">TAROT IA</span>
+          <span className="text-[#e8e0d0] ml-1">TAROT</span>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
           {(Object.keys(LOCALE_LABELS) as UiLocale[]).map((l) => (
@@ -370,7 +370,7 @@ export default function LandingPage() {
             {t.heroTag}
           </p>
           <h1 className="text-5xl md:text-7xl font-serif mb-6 leading-tight">
-            <span className="gold-gradient-text">ATB TAROT IA</span>
+            <span className="gold-gradient-text">ATB TAROT</span>
           </h1>
           <p className="text-2xl md:text-3xl text-[#e8e0d0]/90 font-serif italic mb-6">
             {t.heroSubtitle}
@@ -571,7 +571,7 @@ export default function LandingPage() {
       <footer className="py-12 px-6 border-t border-[#2a2a2a] text-center">
         <div className="font-serif text-lg mb-3">
           <span className="gold-gradient-text font-bold">ATB</span>
-          <span className="text-[#e8e0d0] ml-1">TAROT IA</span>
+          <span className="text-[#e8e0d0] ml-1">TAROT</span>
         </div>
         <p className="text-[#a39878] text-sm max-w-md mx-auto mb-6 leading-relaxed">
           {t.disclaimer}
@@ -584,7 +584,7 @@ export default function LandingPage() {
             {t.enter}
           </Link>
           <span>·</span>
-          <span>© {new Date().getFullYear()} ATB TAROT IA</span>
+          <span>© {new Date().getFullYear()} ATB TAROT</span>
         </div>
       </footer>
     </main>

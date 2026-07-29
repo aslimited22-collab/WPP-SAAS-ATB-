@@ -26,17 +26,18 @@ export interface DeliverResult {
     | "failed";
 }
 
+// Quem fala aqui é a ATB, no WhatsApp, como falaria com qualquer cliente.
 const WHATSAPP_COPY: Record<AppLocale, (nome: string, link: string) => string> = {
   "pt-BR": (nome, link) =>
-    `Olá, ${nome}! Aqui é do ATB TAROT IA. 🕊️ Sua Limpeza Espiritual personalizada está pronta. Acesse agora: ${link}`,
+    `${nome}, é a ATB. 🕊️ Terminei agora a sua Limpeza Espiritual... senti coisas fortes enquanto preparava a sua. Está tudo aqui, leia com calma: ${link}`,
   en: (nome, link) =>
-    `Hello, ${nome}! This is ATB TAROT AI. 🕊️ Your personalized Spiritual Cleansing is ready. Access it now: ${link}`,
+    `${nome}, it's ATB here. 🕊️ I've just finished your Spiritual Cleansing... I felt strong things while I was preparing yours. It's all here, read it calmly: ${link}`,
   es: (nome, link) =>
-    `Hola, ${nome}! Somos ATB TAROT IA. 🕊️ Tu Limpieza Espiritual personalizada está lista. Accede ahora: ${link}`,
+    `${nome}, soy ATB. 🕊️ Acabo de terminar tu Limpieza Espiritual... sentí cosas fuertes mientras preparaba la tuya. Está todo aquí, léelo con calma: ${link}`,
   de: (nome, link) =>
-    `Hallo, ${nome}! Hier ist ATB TAROT IA. 🕊️ Deine persönliche Spirituelle Reinigung ist bereit. Öffne sie jetzt: ${link}`,
+    `${nome}, hier ist ATB. 🕊️ Ich habe deine Spirituelle Reinigung gerade fertig gemacht... ich habe starke Dinge gespürt, während ich deine vorbereitet habe. Hier ist alles, lies es in Ruhe: ${link}`,
   it: (nome, link) =>
-    `Ciao, ${nome}! Siamo ATB TAROT IA. 🕊️ La tua Pulizia Spirituale personalizzata è pronta. Accedi ora: ${link}`,
+    `${nome}, sono ATB. 🕊️ Ho appena finito la tua Pulizia Spirituale... ho sentito cose forti mentre preparavo la tua. È tutto qui, leggila con calma: ${link}`,
 };
 
 export async function deliverLimpezaOrder(

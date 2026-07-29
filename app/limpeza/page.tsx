@@ -278,7 +278,7 @@ export default function LimpezaPage() {
         <div className="flex justify-between items-center mb-8">
           <Link href="/" className="font-serif text-lg">
             <span className="gold-gradient-text font-bold">ATB</span>
-            <span className="text-[#e8e0d0] ml-1">TAROT IA</span>
+            <span className="text-[#e8e0d0] ml-1">TAROT</span>
           </Link>
           <div className="flex gap-2 text-xs">
             {(["pt-BR", "en", "es", "de", "it"] as Locale[]).map((l) => (

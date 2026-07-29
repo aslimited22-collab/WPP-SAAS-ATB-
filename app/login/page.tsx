@@ -45,7 +45,7 @@ const DICT: Record<
     submit: "✦ Enviar Link de Acesso",
     footerQuestion: "Ainda não é assinante?",
     footerLink: "Assine por R$29/mês",
-    footerBrand: "ATB TAROT IA — Portal de Leituras Místicas",
+    footerBrand: "ATB TAROT — Portal de Leituras Místicas",
   },
   en: {
     tagline: "Sign in with your email to enter your mystical portal",
@@ -63,7 +63,7 @@ const DICT: Record<
     submit: "✦ Send Access Link",
     footerQuestion: "Not a subscriber yet?",
     footerLink: "Subscribe for $9/month",
-    footerBrand: "ATB TAROT IA — Mystical Readings Portal",
+    footerBrand: "ATB TAROT — Mystical Readings Portal",
   },
   es: {
     tagline: "Entra con tu correo para acceder a tu portal místico",
@@ -81,7 +81,7 @@ const DICT: Record<
     submit: "✦ Enviar Enlace de Acceso",
     footerQuestion: "¿Aún no tienes tu suscripción?",
     footerLink: "Suscríbete por $9/mes",
-    footerBrand: "ATB TAROT IA — Portal de Lecturas Místicas",
+    footerBrand: "ATB TAROT — Portal de Lecturas Místicas",
   },
   de: {
     tagline: "Melde dich mit deiner E-Mail an und betritt dein mystisches Portal",
@@ -99,7 +99,7 @@ const DICT: Record<
     submit: "✦ Zugangslink senden",
     footerQuestion: "Noch kein Abo?",
     footerLink: "Abonniere für 8 €/Monat",
-    footerBrand: "ATB TAROT IA — Portal für mystische Lesungen",
+    footerBrand: "ATB TAROT — Portal für mystische Lesungen",
   },
   it: {
     tagline: "Entra con la tua email per accedere al tuo portale mistico",
@@ -117,7 +117,7 @@ const DICT: Record<
     submit: "✦ Invia Link di Accesso",
     footerQuestion: "Non sei ancora abbonato?",
     footerLink: "Abbonati a 8 €/mese",
-    footerBrand: "ATB TAROT IA — Portale di Letture Mistiche",
+    footerBrand: "ATB TAROT — Portale di Letture Mistiche",
   },
 };
 
@@ -202,7 +202,7 @@ export default function LoginPage() {
           <Link href="/" className="inline-block">
             <h1 className="font-serif text-3xl">
               <span className="gold-gradient-text font-bold">ATB</span>
-              <span className="text-[#e8e0d0] ml-1">TAROT IA</span>
+              <span className="text-[#e8e0d0] ml-1">TAROT</span>
             </h1>
           </Link>
           <p className="text-[#b5ab97] text-base mt-2">

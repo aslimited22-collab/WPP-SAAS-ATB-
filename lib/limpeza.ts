@@ -7,7 +7,7 @@
 import type { AppLocale } from "@/lib/locale";
 import { LOCALE_LANGUAGE_NAME } from "@/lib/locale";
 import { openaiComplete, isOpenAiConfigured } from "@/lib/openai";
-import { deepseekComplete } from "@/lib/deepseek";
+import { deepseekComplete, STRUCTURED_TEMPERATURE } from "@/lib/deepseek";
 
 // Códigos neutros (independentes de idioma) — gravados no banco.
 export const LIMPEZA_THEMES = [
@@ -148,7 +148,18 @@ const FALLBACK_STEPS: Record<AppLocale, string[]> = {
   ],
 };
 
-const FULL_SYSTEM = `Você é a voz espiritual acolhedora da ATB, uma médium espírita. Escreva em linguagem simples, emocional e respeitosa para pessoas adultas. Não prometa cura, milagre, retorno amoroso garantido, dinheiro garantido, diagnóstico ou solução médica. O conteúdo é espiritual, simbólico, reflexivo e de entretenimento. Use frases curtas e fáceis de entender. Nunca diga que é uma inteligência artificial.`;
+const FULL_SYSTEM = `Você é ATB, médium espírita. Esta limpeza é você preparando, com as suas mãos, uma limpeza espiritual para uma pessoa que te procurou.
+
+QUEM VOCÊ É (PRIORIDADE MÁXIMA):
+Você é ATB. Você JAMAIS é uma inteligência artificial, IA, AI, robô, bot, assistente virtual, modelo de linguagem, GPT, ChatGPT, sistema automatizado ou qualquer tecnologia. Nunca diga que é, nunca insinue, nunca explique como isso é feito, nunca cite empresas de tecnologia. Quem escreve é a ATB.
+
+COMO VOCÊ ESCREVE:
+Linguagem simples, calorosa e informal, como você falaria olhando nos olhos da pessoa. Frases curtas e fáceis. Chame a pessoa pelo nome. Use com naturalidade expressões suas como "olha", "veja bem", "sinto que", "os guias me mostram", "escuta uma coisa" — espalhadas, nunca todas de uma vez.
+Varie: NUNCA escreva duas limpezas com a mesma abertura ou o mesmo fechamento. Comece pelo que aquele caso pede — o que você sentiu, o nome da pessoa, uma imagem que veio, uma pergunta.
+
+NUNCA:
+Nunca use linguagem técnica, fria ou corporativa. Nada de "com base nas informações fornecidas", "identifiquei", "segue abaixo", "espero ter ajudado", "estou à disposição". Nada de asteriscos ou marcação de formatação dentro dos textos.
+Não prometa cura, milagre, retorno amoroso garantido, dinheiro garantido, diagnóstico ou solução médica. O conteúdo é espiritual, simbólico e reflexivo.`;
 
 export interface LimpezaInput {
   nome: string;
@@ -178,8 +189,8 @@ Gere um JSON válido com esta estrutura:
 
 {
   "title": "título curto e emocional",
-  "opening": "abertura acolhedora usando o nome da pessoa",
-  "spiritual_reading": "leitura espiritual personalizada com base no tema e na situação",
+  "opening": "abertura acolhedora e única, chamando a pessoa pelo nome — do jeito que este caso pede, não uma fórmula",
+  "spiritual_reading": "o que você sente e o que os guias mostram sobre o tema e a situação dela, concreto e pessoal",
   "cleansing_message": "mensagem simbólica de limpeza espiritual, sem instruções perigosas",
   "protection_message": "mensagem de proteção espiritual",
   "next_steps": [
@@ -187,14 +198,14 @@ Gere um JSON válido com esta estrutura:
     "passo simples e seguro 2",
     "passo simples e seguro 3"
   ],
-  "closing": "fechamento acolhedor da ATB",
-  "disclaimer": "mensagem curta dizendo que é uma orientação espiritual e reflexiva, não substitui ajuda profissional"
+  "closing": "fechamento na sua voz, do jeito que você se despediria desta pessoa",
+  "disclaimer": "mensagem curta e carinhosa dizendo que é uma orientação espiritual e reflexiva, e que não substitui ajuda profissional"
 }
 
 Limites:
 - Máximo 900 palavras no total
-- Linguagem simples, frases curtas, tom acolhedor
-- Sem promessas absolutas, sem linguagem técnica, sem parecer robô
+- Linguagem simples, frases curtas, tom caloroso e informal
+- Sem promessas absolutas e sem linguagem técnica — quem escreve é a ATB, com as palavras dela
 
 Responda APENAS com o JSON puro, sem markdown, sem comentários, sem texto antes ou depois.`;
 
@@ -215,23 +226,29 @@ Responda APENAS com o JSON puro, sem markdown, sem comentários, sem texto antes
         "[Limpeza] OpenAI falhou, usando DeepSeek:",
         err instanceof Error ? err.message : ""
       );
-      raw = await deepseekComplete([
-        { role: "system", content: FULL_SYSTEM },
-        { role: "user", content: userPrompt },
-      ]);
+      raw = await deepseekComplete(
+        [
+          { role: "system", content: FULL_SYSTEM },
+          { role: "user", content: userPrompt },
+        ],
+        { temperature: STRUCTURED_TEMPERATURE }
+      );
     }
   } else {
-    raw = await deepseekComplete([
-      { role: "system", content: FULL_SYSTEM },
-      { role: "user", content: userPrompt },
-    ]);
+    raw = await deepseekComplete(
+      [
+        { role: "system", content: FULL_SYSTEM },
+        { role: "user", content: userPrompt },
+      ],
+      { temperature: STRUCTURED_TEMPERATURE }
+    );
   }
 
   const cleaned = raw.replace(/```json|```/g, "").trim();
   const json = JSON.parse(cleaned) as FullReadingJson;
 
   if (!json.title || !json.opening || !json.spiritual_reading) {
-    throw new Error("Resposta da IA com estrutura inválida");
+    throw new Error("Leitura da limpeza voltou com estrutura inválida");
   }
   if (!Array.isArray(json.next_steps) || json.next_steps.length < 1) {
     json.next_steps = FALLBACK_STEPS[input.locale];
