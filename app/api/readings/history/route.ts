@@ -4,11 +4,13 @@ import { createServiceSupabaseClient } from "@/lib/supabase";
 
 export async function GET(_request: NextRequest) {
   const supabaseClient = await createServerSupabaseClient();
+  // getUser() revalida o token junto ao servidor de auth; getSession() apenas
+  // lê o cookie local e não deve ser usado como gate no servidor.
   const {
-    data: { session },
-  } = await supabaseClient.auth.getSession();
+    data: { user },
+  } = await supabaseClient.auth.getUser();
 
-  if (!session) {
+  if (!user) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
@@ -16,7 +18,7 @@ export async function GET(_request: NextRequest) {
   const { data: readings, error } = await supabase
     .from("readings")
     .select("id, resposta_ia, enviado_whatsapp, created_at")
-    .eq("user_id", session.user.id)
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(10);
 

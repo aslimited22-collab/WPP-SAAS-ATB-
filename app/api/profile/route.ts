@@ -22,11 +22,13 @@ export async function GET(request: NextRequest) {
   }
 
   const supabaseClient = await createServerSupabaseClient();
+  // getUser() revalida o token junto ao servidor de auth; getSession() apenas
+  // lê o cookie local e não deve ser usado como gate no servidor.
   const {
-    data: { session },
-  } = await supabaseClient.auth.getSession();
+    data: { user },
+  } = await supabaseClient.auth.getUser();
 
-  if (!session) {
+  if (!user) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
@@ -34,7 +36,7 @@ export async function GET(request: NextRequest) {
   const { data: profile, error } = await supabase
     .from("users")
     .select("id, email, nome, signo, data_nascimento, whatsapp, created_at")
-    .eq("id", session.user.id)
+    .eq("id", user.id)
     .single();
 
   if (error && error.code !== "PGRST116") {
@@ -61,15 +63,17 @@ export async function PUT(request: NextRequest) {
 
   // ── 2. Verificar autenticação ─────────────────────────────────────────────
   const supabaseClient = await createServerSupabaseClient();
+  // getUser() revalida o token junto ao servidor de auth; getSession() apenas
+  // lê o cookie local e não deve ser usado como gate no servidor.
   const {
-    data: { session },
-  } = await supabaseClient.auth.getSession();
+    data: { user },
+  } = await supabaseClient.auth.getUser();
 
-  if (!session) {
+  if (!user) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
-  const userId = session.user.id;
+  const userId = user.id;
 
   // ── 3. Rate limit por userId (10 req/min) ─────────────────────────────────
   const rl = await checkProfileRateLimit(userId);
@@ -119,8 +123,9 @@ export async function PUT(request: NextRequest) {
   }
 
   // ── 6. Obter email da sessão autenticada (não do payload) ─────────────────
-  // O email nunca é aceito do corpo da requisição — sempre vem da sessão Supabase
-  const email = session.user.email;
+  // O email nunca é aceito do corpo da requisição — sempre vem do usuário
+  // revalidado pelo servidor de auth.
+  const email = user.email;
   if (!email) {
     return NextResponse.json(
       { error: "E-mail da sessão inválido" },

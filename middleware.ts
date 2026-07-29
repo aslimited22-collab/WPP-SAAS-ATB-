@@ -106,6 +106,18 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  // Um redirect novo não herda os cookies que o cliente Supabase gravou em
+  // `response` — nem o token renovado, nem a limpeza de um token expirado.
+  // Sem copiá-los, a renovação é perdida e a requisição seguinte reautentica
+  // de novo (ou o cookie morto persiste e vira loop de redirect no /login).
+  const redirectPreservingCookies = (url: URL) => {
+    const redirect = NextResponse.redirect(url);
+    for (const cookie of response.cookies.getAll()) {
+      redirect.cookies.set(cookie);
+    }
+    return redirect;
+  };
+
   // getUser() revalida o token junto ao servidor de auth (recomendado pelo
   // Supabase), ao contrário de getSession() que apenas lê o cookie local.
   const {
@@ -130,7 +142,7 @@ export async function middleware(request: NextRequest) {
 
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", safeNext);
-    return NextResponse.redirect(loginUrl);
+    return redirectPreservingCookies(loginUrl);
   }
 
   // ── Rotas que exigem acesso pago ──────────────────────────────────────────
@@ -141,13 +153,15 @@ export async function middleware(request: NextRequest) {
   const needsDashboardAccess = pathname.startsWith("/dashboard");
 
   if (needsSubscription || needsDashboardAccess) {
+    // maybeSingle: não ter assinatura é caso normal (quem só comprou créditos
+    // avulsos) — single() devolveria erro PGRST116 a cada requisição.
     const { data: subscription } = await supabase
       .from("subscriptions")
       .select("status")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     const hasActiveSubscription = subscription?.status === "active";
 
@@ -166,10 +180,10 @@ export async function middleware(request: NextRequest) {
         .from("users")
         .select("chat_credits_balance")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
       if ((userRow?.chat_credits_balance ?? 0) <= 0) {
-        return NextResponse.redirect(
+        return redirectPreservingCookies(
           new URL("/assinatura-inativa", request.url)
         );
       }

@@ -55,19 +55,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // getUser() revalida o token junto ao servidor de auth; getSession() apenas
+  // lê o cookie local e não deve ser usado como gate no servidor.
   const supabaseClient = await createServerSupabaseClient();
   const {
-    data: { session },
-  } = await supabaseClient.auth.getSession();
+    data: { user },
+  } = await supabaseClient.auth.getUser();
 
-  if (!session) {
+  if (!user) {
     return NextResponse.json(
       { error: "Não autorizado. Faça login para continuar." },
       { status: 401 }
     );
   }
 
-  const userId = session.user.id;
+  const userId = user.id;
 
   const userRl = await checkReadingRateLimit(userId);
   if (!userRl.success) {
@@ -118,13 +120,15 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceSupabaseClient();
 
+  // maybeSingle: não ter linha é caso normal (nunca assinou) — single() geraria
+  // um erro PGRST116 no log a cada requisição desse tipo.
   const { data: subscription } = await supabase
     .from("subscriptions")
     .select("status")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (!subscription || subscription.status !== "active") {
     return NextResponse.json(
@@ -140,7 +144,7 @@ export async function POST(request: NextRequest) {
     .from("credits")
     .select("id, leituras_restantes")
     .eq("user_id", userId)
-    .single();
+    .maybeSingle();
 
   if (!credits || credits.leituras_restantes <= 0) {
     return NextResponse.json(
@@ -179,17 +183,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { error: creditError, count: rowsUpdated } = await supabase
+  // O `count` do postgrest só é preenchido quando se pede `{ count: ... }` —
+  // sem isso ele volta null e a checagem nunca detectaria a corrida. Por isso
+  // o veredito vem do NÚMERO DE LINHAS retornadas pelo update condicional.
+  const { data: creditRows, error: creditError } = await supabase
     .from("credits")
     .update({
       leituras_restantes: credits.leituras_restantes - 1,
       updated_at: new Date().toISOString(),
     })
     .eq("id", credits.id)
-    .eq("leituras_restantes", credits.leituras_restantes)
-    .select();
+    .eq("leituras_restantes", credits.leituras_restantes) // optimistic lock
+    .select("id");
 
-  if (creditError || rowsUpdated === 0) {
+  if (creditError || !creditRows || creditRows.length === 0) {
     return NextResponse.json(
       {
         error:
@@ -208,13 +215,17 @@ export async function POST(request: NextRequest) {
       pergunta: CATEGORIA_CONTEXTO[categoria],
     });
   } catch {
+    // Estorno CONDICIONAL ao saldo ainda ser o que deixamos — ver a mesma
+    // proteção em /api/readings: uma escrita absoluta apagaria um saldo maior
+    // gravado por renovação de assinatura durante a chamada à IA.
     await supabase
       .from("credits")
       .update({
         leituras_restantes: credits.leituras_restantes,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", credits.id);
+      .eq("id", credits.id)
+      .eq("leituras_restantes", credits.leituras_restantes - 1);
 
     return NextResponse.json(
       { error: "Erro ao gerar sua leitura. Tente novamente." },

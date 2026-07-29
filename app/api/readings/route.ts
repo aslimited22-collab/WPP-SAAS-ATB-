@@ -40,20 +40,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // ── 3. Verificar autenticação (JWT via cookie de sessão) ──────────────────
+  // ── 3. Verificar autenticação ─────────────────────────────────────────────
+  // getUser() revalida o token junto ao servidor de auth; getSession() apenas
+  // lê o cookie local e não deve ser usado como gate no servidor.
   const supabaseClient = await createServerSupabaseClient();
   const {
-    data: { session },
-  } = await supabaseClient.auth.getSession();
+    data: { user },
+  } = await supabaseClient.auth.getUser();
 
-  if (!session) {
+  if (!user) {
     return NextResponse.json(
       { error: "Não autorizado. Faça login para continuar." },
       { status: 401 }
     );
   }
 
-  const userId = session.user.id;
+  const userId = user.id;
 
   // ── 4. Rate limit por userId (5 req/hora) — mais restritivo que o de IP ──
   // Evita que um usuário abuse mesmo trocando de IP / usando VPN.
@@ -109,13 +111,15 @@ export async function POST(request: NextRequest) {
   const supabase = createServiceSupabaseClient();
 
   // Verificar assinatura ativa
+  // maybeSingle: não ter linha é caso normal (nunca assinou) — single() geraria
+  // um erro PGRST116 no log a cada requisição desse tipo.
   const { data: subscription } = await supabase
     .from("subscriptions")
     .select("status")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (!subscription || subscription.status !== "active") {
     return NextResponse.json(
@@ -132,7 +136,7 @@ export async function POST(request: NextRequest) {
     .from("credits")
     .select("id, leituras_restantes")
     .eq("user_id", userId)
-    .single();
+    .maybeSingle();
 
   if (!credits || credits.leituras_restantes <= 0) {
     return NextResponse.json(
@@ -175,7 +179,10 @@ export async function POST(request: NextRequest) {
   // ── 7. Decrementar créditos ANTES de gerar a leitura ─────────────────────
   // Garante atomicidade: se o decremento falhar (ex: race condition), a leitura
   // não é gerada e nenhum crédito é consumido sem registro.
-  const { error: creditError, count: rowsUpdated } = await supabase
+  // O `count` do postgrest só é preenchido quando se pede `{ count: ... }` —
+  // sem isso ele volta null e a checagem nunca detectaria a corrida. Por isso
+  // o veredito vem do NÚMERO DE LINHAS retornadas pelo update condicional.
+  const { data: creditRows, error: creditError } = await supabase
     .from("credits")
     .update({
       leituras_restantes: credits.leituras_restantes - 1,
@@ -183,9 +190,9 @@ export async function POST(request: NextRequest) {
     })
     .eq("id", credits.id)
     .eq("leituras_restantes", credits.leituras_restantes) // optimistic lock
-    .select();
+    .select("id");
 
-  if (creditError || rowsUpdated === 0) {
+  if (creditError || !creditRows || creditRows.length === 0) {
     // Concorrência detectada: outro request já consumiu o crédito
     return NextResponse.json(
       {
@@ -207,14 +214,19 @@ export async function POST(request: NextRequest) {
       locale: normalizeLocale(userProfile.locale),
     });
   } catch (err) {
-    // Leitura falhou — estornar o crédito decrementado
+    // Leitura falhou — estornar o crédito decrementado.
+    // O estorno é CONDICIONAL ao saldo ainda ser o que deixamos: se uma
+    // renovação (webhook) ou outra requisição mexeu no saldo nesse meio-tempo,
+    // uma escrita absoluta apagaria esse valor mais novo. Nesse caso o estorno
+    // é abandonado — errar a favor da cliente, nunca reduzir o saldo dela.
     await supabase
       .from("credits")
       .update({
         leituras_restantes: credits.leituras_restantes, // restaurar valor anterior
         updated_at: new Date().toISOString(),
       })
-      .eq("id", credits.id);
+      .eq("id", credits.id)
+      .eq("leituras_restantes", credits.leituras_restantes - 1);
 
     console.error("[Readings] Erro ao gerar leitura (crédito estornado)");
     await supabase.from("audit_logs").insert({
