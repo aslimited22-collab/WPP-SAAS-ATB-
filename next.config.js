@@ -10,18 +10,47 @@ const isDev = process.env.NODE_ENV === "development";
 // • object-src 'none' bloqueia Flash e plugins legados
 // • worker-src 'none' bloqueia Web Workers não autorizados
 // • upgrade-insecure-requests força HTTPS em produção
+// ─── Google Ads (gtag.js) e a CSP ─────────────────────────────────────────────
+// O tag de conversão do Google Ads precisa de três coisas que a CSP anterior
+// bloqueava — por isso nenhuma conversão poderia ser registrada, mesmo com a
+// tag instalada:
+//   1. carregar o script  → script-src  googletagmanager.com
+//   2. o ping de conversão (pixel/beacon) → img-src + connect-src google.com,
+//      google.com.br e googleads.g.doubleclick.net
+//   3. o iframe do conversion linker → frame-src td/googleads.doubleclick.net
+// frame-ancestors 'none' e X-Frame-Options: DENY continuam intactos: o site
+// segue não podendo ser embutido por terceiros.
+const GOOGLE_ADS_SCRIPT = ["https://www.googletagmanager.com"];
+const GOOGLE_ADS_PIXEL = [
+  "https://www.googletagmanager.com",
+  "https://www.google.com",
+  "https://www.google.com.br",
+  "https://www.google-analytics.com",
+  "https://googleads.g.doubleclick.net",
+];
+const GOOGLE_ADS_FRAME = [
+  "https://td.doubleclick.net",
+  "https://googleads.g.doubleclick.net",
+];
+
 const cspDirectives = [
   "default-src 'self'",
   // unsafe-eval apenas em desenvolvimento (hot reload do Next.js)
-  isDev
-    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-    : "script-src 'self' 'unsafe-inline'",
+  [
+    "script-src 'self' 'unsafe-inline'",
+    ...(isDev ? ["'unsafe-eval'"] : []),
+    ...GOOGLE_ADS_SCRIPT,
+  ].join(" "),
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "img-src 'self' data: blob:",
-  // connect-src: apenas Supabase (Auth + DB) — Claude e Z-API são server-side
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
-  "frame-src 'none'",
+  ["img-src 'self' data: blob:", ...GOOGLE_ADS_PIXEL].join(" "),
+  // connect-src: Supabase (Auth + DB) + ping de conversão do Google Ads
+  // — Claude e Z-API são server-side
+  [
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+    ...GOOGLE_ADS_PIXEL,
+  ].join(" "),
+  ["frame-src", ...GOOGLE_ADS_FRAME].join(" "),
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",

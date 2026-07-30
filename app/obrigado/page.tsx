@@ -2,6 +2,9 @@
 //   Kiwify (BR): URL de obrigado configurada no produto → sempre pt-BR
 //   Stripe (intl): success_url inclui ?lang=<locale do comprador>
 import Link from "next/link";
+import AdsConversion from "@/app/components/AdsConversion";
+import { conversionValue, isCurrency, purchaseSendTo } from "@/lib/gtag";
+import { isValidProduct } from "@/lib/pricing";
 
 type Locale = "pt-BR" | "en" | "es" | "de" | "it";
 
@@ -58,11 +61,25 @@ function normalize(lang: string | undefined): Locale {
 export default async function ObrigadoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ lang?: string }>;
+  searchParams: Promise<{
+    lang?: string;
+    plan?: string;
+    cur?: string;
+    sid?: string;
+  }>;
 }) {
-  const { lang } = await searchParams;
+  const { lang, plan, cur, sid } = await searchParams;
   const locale = normalize(lang);
   const t = COPY[locale];
+
+  // ── Conversão do Google Ads ────────────────────────────────────────────────
+  // O Stripe manda plan+cur+sid no success_url. A Kiwify (BR) usa a URL de
+  // obrigado configurada no produto e pode não mandar nada: nesse caso a
+  // conversão é registrada sem valor. Para ter receita também no Brasil, basta
+  // acrescentar ?plan=<produto> na URL de obrigado de cada produto na Kiwify.
+  const sendTo = purchaseSendTo();
+  const product = plan && isValidProduct(plan) ? plan : null;
+  const money = conversionValue(product, isCurrency(cur) ? cur : null);
 
   return (
     // lang no <main>: o layout raiz fixa html lang="pt-BR"; esta página é
@@ -71,6 +88,14 @@ export default async function ObrigadoPage({
       lang={locale}
       className="min-h-screen bg-mystic-gradient stars-bg flex items-center justify-center px-6"
     >
+      {sendTo && (
+        <AdsConversion
+          sendTo={sendTo}
+          value={money?.value}
+          currency={money?.currency}
+          transactionId={sid}
+        />
+      )}
       <div className="w-full max-w-lg text-center">
         <div className="text-6xl mb-6 animate-float">🌟</div>
         <h1 className="font-serif text-4xl gold-gradient-text mb-4">

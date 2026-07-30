@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import GoogleAdsTag from "./components/GoogleAdsTag";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -43,7 +44,10 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        {children}
+        <GoogleAdsTag />
+      </body>
     </html>
   );
 }

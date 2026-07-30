@@ -8,6 +8,9 @@ const PUBLIC_ROUTES = [
   "/obrigado",
   "/limpeza",
   "/entrega",
+  // Landing das campanhas de Google Ads: tráfego pago chega deslogado.
+  // Sem estar aqui, todo clique no anúncio seria redirecionado para /login.
+  "/google-ads",
   "/api/webhooks/kiwify",
   "/api/webhooks/stripe",
   "/api/auth",
