@@ -80,7 +80,7 @@ function mysticLayout(inner: string): string {
   <div style="background:linear-gradient(135deg,#15102a,#1f1640,#15102a);border-radius:20px;padding:40px 28px;text-align:center;border:2px solid rgba(201,168,76,0.4);">
     ${inner}
   </div>
-  <div style="text-align:center;margin-top:20px;color:#666;font-size:12px;">ATB TAROT IA</div>
+  <div style="text-align:center;margin-top:20px;color:#666;font-size:12px;">ATB TAROT</div>
 </div></body></html>`;
 }
 
@@ -103,46 +103,46 @@ const ACCESS_COPY: Record<
   }
 > = {
   "pt-BR": {
-    subject: "🔮 Seu acesso ao ATB TAROT IA está liberado",
+    subject: "🔮 Seu acesso ao ATB TAROT está liberado",
     title: "Sua jornada começou",
     body: (n) =>
-      `Olá, <strong style="color:#c9a84c;">${n}</strong>!<br>Sua compra foi confirmada e seu portal já está aberto. Toque no botão dourado para entrar agora:`,
+      `Olá, <strong style="color:#c9a84c;">${n}</strong>!<br>Que bom te ver por aqui. Sua compra foi confirmada e o seu portal já está aberto — toque no botão dourado e venha:`,
     cta: "✦ Acessar meu portal",
     fallback: (url) =>
       `Se o botão expirar, acesse <a href="${url}" style="color:#c9a84c;">a página de login</a> e peça um novo link mágico com este mesmo e-mail.`,
   },
   en: {
-    subject: "🔮 Your ATB TAROT AI access is ready",
+    subject: "🔮 Your ATB TAROT access is ready",
     title: "Your journey has begun",
     body: (n) =>
-      `Hello, <strong style="color:#c9a84c;">${n}</strong>!<br>Your purchase is confirmed and your portal is open. Tap the golden button to enter now:`,
+      `Hello, <strong style="color:#c9a84c;">${n}</strong>!<br>So good to have you here. Your purchase is confirmed and your portal is already open — tap the golden button and come in:`,
     cta: "✦ Access my portal",
     fallback: (url) =>
       `If the button expires, go to <a href="${url}" style="color:#c9a84c;">the login page</a> and request a new magic link with this same email.`,
   },
   es: {
-    subject: "🔮 Tu acceso a ATB TAROT IA está listo",
+    subject: "🔮 Tu acceso a ATB TAROT está listo",
     title: "Tu viaje ha comenzado",
     body: (n) =>
-      `Hola, <strong style="color:#c9a84c;">${n}</strong>!<br>Tu compra fue confirmada y tu portal ya está abierto. Toca el botón dorado para entrar ahora:`,
+      `Hola, <strong style="color:#c9a84c;">${n}</strong>!<br>Qué bueno tenerte aquí. Tu compra fue confirmada y tu portal ya está abierto — toca el botón dorado y entra:`,
     cta: "✦ Acceder a mi portal",
     fallback: (url) =>
       `Si el botón expira, ve a <a href="${url}" style="color:#c9a84c;">la página de inicio de sesión</a> y pide un nuevo enlace mágico con este mismo correo.`,
   },
   de: {
-    subject: "🔮 Dein Zugang zu ATB TAROT IA ist bereit",
+    subject: "🔮 Dein Zugang zu ATB TAROT ist bereit",
     title: "Deine Reise hat begonnen",
     body: (n) =>
-      `Hallo, <strong style="color:#c9a84c;">${n}</strong>!<br>Dein Kauf wurde bestätigt und dein Portal ist geöffnet. Tippe auf den goldenen Knopf, um jetzt einzutreten:`,
+      `Hallo, <strong style="color:#c9a84c;">${n}</strong>!<br>Schön, dass du da bist. Dein Kauf wurde bestätigt und dein Portal ist schon offen — tippe auf den goldenen Knopf und komm herein:`,
     cta: "✦ Mein Portal öffnen",
     fallback: (url) =>
       `Wenn der Knopf abgelaufen ist, gehe zur <a href="${url}" style="color:#c9a84c;">Anmeldeseite</a> und fordere mit derselben E-Mail-Adresse einen neuen magischen Link an.`,
   },
   it: {
-    subject: "🔮 Il tuo accesso ad ATB TAROT IA è pronto",
+    subject: "🔮 Il tuo accesso ad ATB TAROT è pronto",
     title: "Il tuo viaggio è iniziato",
     body: (n) =>
-      `Ciao, <strong style="color:#c9a84c;">${n}</strong>!<br>Il tuo acquisto è stato confermato e il tuo portale è aperto. Tocca il pulsante dorato per entrare subito:`,
+      `Ciao, <strong style="color:#c9a84c;">${n}</strong>!<br>Che bello averti qui. Il tuo acquisto è stato confermato e il tuo portale è già aperto — tocca il pulsante dorato ed entra:`,
     cta: "✦ Accedi al mio portale",
     fallback: (url) =>
       `Se il pulsante è scaduto, vai alla <a href="${url}" style="color:#c9a84c;">pagina di accesso</a> e richiedi un nuovo link magico con questa stessa e-mail.`,
@@ -208,7 +208,7 @@ const LIMPEZA_COPY: Record<
     subject: "🕊️ Sua Limpeza Espiritual está pronta",
     title: "Sua Limpeza está pronta",
     body: (n) =>
-      `Olá, <strong style="color:#c9a84c;">${n}</strong>!<br>A ATB preparou sua Limpeza Espiritual personalizada. Toque no botão para receber agora:`,
+      `<strong style="color:#c9a84c;">${n}</strong>, é a ATB.<br>Terminei agora a sua Limpeza Espiritual. Está tudo aqui — toque no botão e leia com calma:`,
     cta: "✨ Abrir minha Limpeza",
     note: "Guarde este e-mail — o link é seu acesso permanente à sua limpeza.",
   },
@@ -216,7 +216,7 @@ const LIMPEZA_COPY: Record<
     subject: "🕊️ Your Spiritual Cleansing is ready",
     title: "Your Cleansing is ready",
     body: (n) =>
-      `Hello, <strong style="color:#c9a84c;">${n}</strong>!<br>ATB has prepared your personalized Spiritual Cleansing. Tap the button to receive it now:`,
+      `<strong style="color:#c9a84c;">${n}</strong>, it's ATB.<br>I've just finished your Spiritual Cleansing. It's all here — tap the button and read it calmly:`,
     cta: "✨ Open my Cleansing",
     note: "Keep this email — the link is your permanent access to your cleansing.",
   },
@@ -224,7 +224,7 @@ const LIMPEZA_COPY: Record<
     subject: "🕊️ Tu Limpieza Espiritual está lista",
     title: "Tu Limpieza está lista",
     body: (n) =>
-      `Hola, <strong style="color:#c9a84c;">${n}</strong>!<br>ATB preparó tu Limpieza Espiritual personalizada. Toca el botón para recibirla ahora:`,
+      `<strong style="color:#c9a84c;">${n}</strong>, soy ATB.<br>Acabo de terminar tu Limpieza Espiritual. Está todo aquí — toca el botón y léelo con calma:`,
     cta: "✨ Abrir mi Limpieza",
     note: "Guarda este correo — el enlace es tu acceso permanente a tu limpieza.",
   },
@@ -232,7 +232,7 @@ const LIMPEZA_COPY: Record<
     subject: "🕊️ Deine Spirituelle Reinigung ist bereit",
     title: "Deine Reinigung ist bereit",
     body: (n) =>
-      `Hallo, <strong style="color:#c9a84c;">${n}</strong>!<br>ATB hat deine persönliche Spirituelle Reinigung vorbereitet. Tippe auf den Knopf, um sie jetzt zu empfangen:`,
+      `<strong style="color:#c9a84c;">${n}</strong>, hier ist ATB.<br>Ich habe deine Spirituelle Reinigung gerade fertig gemacht. Hier ist alles — tippe auf den Knopf und lies es in Ruhe:`,
     cta: "✨ Meine Reinigung öffnen",
     note: "Bewahre diese E-Mail auf — der Link ist dein dauerhafter Zugang zu deiner Reinigung.",
   },
@@ -240,7 +240,7 @@ const LIMPEZA_COPY: Record<
     subject: "🕊️ La tua Pulizia Spirituale è pronta",
     title: "La tua Pulizia è pronta",
     body: (n) =>
-      `Ciao, <strong style="color:#c9a84c;">${n}</strong>!<br>ATB ha preparato la tua Pulizia Spirituale personalizzata. Tocca il pulsante per riceverla subito:`,
+      `<strong style="color:#c9a84c;">${n}</strong>, sono ATB.<br>Ho appena finito la tua Pulizia Spirituale. È tutto qui — tocca il pulsante e leggila con calma:`,
     cta: "✨ Apri la mia Pulizia",
     note: "Conserva questa e-mail — il link è il tuo accesso permanente alla tua pulizia.",
   },

@@ -41,7 +41,7 @@ function emailHtml(nome, email) {
     <div style="font-size:56px;margin-bottom:14px;">🔮</div>
     <h1 style="color:#c9a84c;font-size:28px;margin:0 0 14px;">Seu portal ganhou casa nova</h1>
     <p style="font-size:17px;line-height:1.65;margin:0 0 10px;">Olá, <strong style="color:#c9a84c;">${esc(firstName)}</strong>!</p>
-    <p style="font-size:17px;line-height:1.65;margin:0 0 24px;">Minha querida alma, o portal ATB TAROT IA mudou para um endereço novo, mais bonito e mais fácil de usar. <strong style="color:#c9a84c;">Sua assinatura continua exatamente igual</strong> — você não paga nada a mais por isso.</p>
+    <p style="font-size:17px;line-height:1.65;margin:0 0 24px;">Minha querida alma, o portal ATB TAROT mudou para um endereço novo, mais bonito e mais fácil de usar. <strong style="color:#c9a84c;">Sua assinatura continua exatamente igual</strong> — você não paga nada a mais por isso.</p>
     <a href="${APP}/login" style="display:inline-block;background:linear-gradient(135deg,#c9a84c,#a8862e);color:#0a0a14;font-weight:800;font-size:19px;padding:18px 34px;border-radius:14px;text-decoration:none;box-shadow:0 8px 24px rgba(201,168,76,0.4);">✦ Entrar no meu novo portal</a>
   </div>
   <div style="margin-top:20px;padding:20px 22px;background:rgba(201,168,76,0.08);border:1.5px solid rgba(201,168,76,0.3);border-radius:14px;text-align:left;">
@@ -53,7 +53,7 @@ function emailHtml(nome, email) {
     </ol>
   </div>
   <div style="text-align:center;margin-top:24px;color:#9a8f78;font-size:13px;line-height:1.6;">
-    Lá dentro você conversa com a ATB no chat, pede suas leituras de tarot<br>e recebe tudo no WhatsApp — com letras grandes e fáceis.<br><br>Com amor e luz, ATB TAROT IA 💛
+    Lá dentro você conversa com a ATB no chat, pede suas leituras de tarot<br>e recebe tudo no WhatsApp — com letras grandes e fáceis.<br><br>Com amor e luz, ATB TAROT 💛
   </div>
 </div></body></html>`;
 }
@@ -153,7 +153,7 @@ async function jaEnviado(email) {
         body: JSON.stringify({
           from: NEW.RESEND_FROM_EMAIL,
           to: email,
-          subject: "🔮 Seu portal ATB TAROT IA mudou — seu novo acesso está aqui",
+          subject: "🔮 Seu portal ATB TAROT mudou — seu novo acesso está aqui",
           html: emailHtml(u.name, email),
         }),
       });

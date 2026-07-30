@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
   const rl = await checkRateLimit(`chat_ip:${ipAddress}`);
   if (!rl.success) {
     return NextResponse.json(
-      { error: "Muitas solicitações. Aguarde um momento." },
+      { error: "Calma, minha querida alma... respira um instante e me chama de novo." },
       {
         status: 429,
         headers: { "Retry-After": String(Math.ceil((rl.reset - Date.now()) / 1000)) },
@@ -70,17 +70,26 @@ export async function POST(request: NextRequest) {
   // Tamanho/validação do corpo
   const contentLength = parseInt(request.headers.get("content-length") ?? "0", 10);
   if (contentLength > MAX_BODY_BYTES) {
-    return NextResponse.json({ error: "Mensagem muito longa" }, { status: 413 });
+    return NextResponse.json(
+      { error: "Sua mensagem ficou grande demais — me conta em menos palavras?" },
+      { status: 413 }
+    );
   }
   let body: { message?: unknown };
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Payload inválido" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Não consegui receber sua mensagem. Tenta escrever de novo?" },
+      { status: 400 }
+    );
   }
   const message = stripControlChars(String(body?.message ?? "")).trim();
   if (!message || message.length > MAX_MESSAGE_CHARS) {
-    return NextResponse.json({ error: "Mensagem inválida" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Me escreve o que você está sentindo, minha querida alma." },
+      { status: 400 }
+    );
   }
 
   // ── Perfil + assinatura (service role: fonte da verdade) ──────────────────
@@ -114,7 +123,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Para conversar com a ATB, assine um plano ou compre uma pergunta avulsa.",
+          "Para conversar comigo, escolha um plano ou uma pergunta avulsa — te espero aqui.",
         needsUpgrade: true,
       },
       { status: 402 }
@@ -139,7 +148,7 @@ export async function POST(request: NextRequest) {
     if (diff < throttle) {
       const wait = Math.ceil(throttle - diff);
       return NextResponse.json(
-        { error: `Aguarde ${wait}s antes de enviar outra mensagem.` },
+        { error: `Deixa eu sentir o que veio... me chama em ${wait}s.` },
         { status: 429, headers: { "Retry-After": String(wait) } }
       );
     }
@@ -156,7 +165,11 @@ export async function POST(request: NextRequest) {
     );
     if (rpcErr || !consumed) {
       return NextResponse.json(
-        { error: "Você não tem créditos disponíveis.", needsUpgrade: true },
+        {
+          error:
+            "Suas perguntas acabaram, minha querida alma. Pegue mais uma e voltamos a conversar.",
+          needsUpgrade: true,
+        },
         { status: 402 }
       );
     }
@@ -169,7 +182,7 @@ export async function POST(request: NextRequest) {
     if (rpcErr || !consumed) {
       return NextResponse.json(
         {
-          error: `Você atingiu o limite de ${planLimit} mensagens deste mês no seu plano.`,
+          error: `Você já usou as ${planLimit} mensagens deste mês no seu plano. No próximo ciclo eu te espero de volta.`,
         },
         { status: 429 }
       );
@@ -225,13 +238,25 @@ export async function POST(request: NextRequest) {
   } catch {
     await rollbackUserMessage();
     await refundCharge();
-    return NextResponse.json({ error: "Erro na consulta" }, { status: 502 });
+    return NextResponse.json(
+      {
+        error:
+          "Perdi a ligação com os guias agora... me chama de novo em um instante.",
+      },
+      { status: 502 }
+    );
   }
 
   if (!upstream.ok || !upstream.body) {
     await rollbackUserMessage();
     await refundCharge();
-    return NextResponse.json({ error: "Erro na consulta" }, { status: 502 });
+    return NextResponse.json(
+      {
+        error:
+          "Perdi a ligação com os guias agora... me chama de novo em um instante.",
+      },
+      { status: 502 }
+    );
   }
 
   let full = "";

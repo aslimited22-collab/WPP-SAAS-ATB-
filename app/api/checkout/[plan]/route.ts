@@ -111,7 +111,9 @@ export async function GET(
         },
       ],
       ...(orderId ? { client_reference_id: orderId } : {}),
-      success_url: `${baseUrl}/obrigado?plan=${plan}&lang=${appLocale}`,
+      // cur + sid alimentam a conversão do Google Ads em /obrigado: cur dá o
+      // valor correto na moeda cobrada, sid vira transaction_id (dedupe em F5).
+      success_url: `${baseUrl}/obrigado?plan=${plan}&lang=${appLocale}&cur=${currency}&sid={CHECKOUT_SESSION_ID}`,
       cancel_url: plan === "limpeza" ? `${baseUrl}/limpeza` : `${baseUrl}/#assinar`,
       billing_address_collection: "auto",
       metadata: {

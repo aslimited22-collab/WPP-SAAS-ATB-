@@ -7,6 +7,11 @@ import { useRouter } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase";
 import { useUiLocale, LOCALE_LABELS, type UiLocale } from "@/lib/use-locale";
 import {
+  typingDelayMs,
+  pauseBetweenBubblesMs,
+  sleep,
+} from "@/lib/human-typing";
+import {
   profileSchema,
   type ProfileInput,
   SIGNOS,
@@ -120,7 +125,7 @@ const DICT: Record<UiLocale, DashboardDict> = {
     loading: "Consultando os astros...",
     logout: "Sair",
     hello: "Olá",
-    welcome: "Bem-vinda(o) ao ATB TAROT IA",
+    welcome: "Bem-vinda(o) ao ATB TAROT",
     readingsOne: "leitura disponível",
     readingsMany: "leituras disponíveis",
     inMonth: "em",
@@ -218,7 +223,7 @@ const DICT: Record<UiLocale, DashboardDict> = {
     loading: "Consulting the stars...",
     logout: "Sign out",
     hello: "Hello",
-    welcome: "Welcome to ATB TAROT IA",
+    welcome: "Welcome to ATB TAROT",
     readingsOne: "reading available",
     readingsMany: "readings available",
     inMonth: "in",
@@ -316,7 +321,7 @@ const DICT: Record<UiLocale, DashboardDict> = {
     loading: "Consultando los astros...",
     logout: "Salir",
     hello: "Hola",
-    welcome: "Bienvenida(o) a ATB TAROT IA",
+    welcome: "Bienvenida(o) a ATB TAROT",
     readingsOne: "lectura disponible",
     readingsMany: "lecturas disponibles",
     inMonth: "en",
@@ -414,7 +419,7 @@ const DICT: Record<UiLocale, DashboardDict> = {
     loading: "Die Sterne werden befragt...",
     logout: "Abmelden",
     hello: "Hallo",
-    welcome: "Willkommen bei ATB TAROT IA",
+    welcome: "Willkommen bei ATB TAROT",
     readingsOne: "Legung verfügbar",
     readingsMany: "Legungen verfügbar",
     inMonth: "im",
@@ -516,7 +521,7 @@ const DICT: Record<UiLocale, DashboardDict> = {
     loading: "Consultando le stelle...",
     logout: "Esci",
     hello: "Ciao",
-    welcome: "Benvenuta(o) in ATB TAROT IA",
+    welcome: "Benvenuta(o) in ATB TAROT",
     readingsOne: "lettura disponibile",
     readingsMany: "letture disponibili",
     inMonth: "in",
@@ -883,14 +888,14 @@ export default function DashboardPage() {
         .map((b) => b.trim())
         .filter(Boolean);
 
-      const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
       setChatMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
       for (let k = 0; k < bubbles.length; k++) {
-        // tempo de "digitação" proporcional ao tamanho da mensagem
-        const delay = Math.min(900 + bubbles[k].length * 22, 3200);
-        await sleep(k === 0 ? Math.min(delay, 1600) : delay);
+        // "digitando..." pelo tempo que a ATB levaria para escrever esta bolha
+        setAtbTyping(true);
+        await sleep(typingDelayMs(bubbles[k]));
         const revealed = bubbles.slice(0, k + 1).join("|||");
+        setAtbTyping(false);
         setChatMessages((prev) => {
           const next = [...prev];
           const last = next[next.length - 1];
@@ -899,7 +904,8 @@ export default function DashboardPage() {
           }
           return next;
         });
-        if (k < bubbles.length - 1) await sleep(450);
+        // ela respira, relê e começa a escrever a próxima
+        if (k < bubbles.length - 1) await sleep(pauseBetweenBubblesMs());
       }
 
       setChatRemaining((prev) =>
@@ -940,7 +946,7 @@ export default function DashboardPage() {
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="font-serif text-lg">
             <span className="gold-gradient-text font-bold">ATB</span>
-            <span className="text-[#e8e0d0] ml-1">TAROT IA</span>
+            <span className="text-[#e8e0d0] ml-1">TAROT</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
             {(Object.keys(LOCALE_LABELS) as UiLocale[]).map((l) => (

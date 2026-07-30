@@ -106,7 +106,7 @@ function h(extra = {}) {
     <a href="${actionLink}" style="display:inline-block;background:linear-gradient(135deg,#c9a84c,#a8862e);color:#0a0a14;font-weight:800;font-size:19px;padding:18px 34px;border-radius:14px;text-decoration:none;box-shadow:0 8px 24px rgba(201,168,76,0.4);">✦ Acessar meu portal</a>
     <p style="color:#9a8f78;font-size:13px;line-height:1.6;margin:26px 0 0;">Se o botão expirar, acesse <a href="${APP}/login" style="color:#c9a84c;">a página de login</a> e peça um novo link mágico com este mesmo e-mail.</p>
   </div>
-  <div style="text-align:center;margin-top:20px;color:#666;font-size:12px;">ATB TAROT IA</div>
+  <div style="text-align:center;margin-top:20px;color:#666;font-size:12px;">ATB TAROT</div>
 </div></body></html>`;
 
   const send = await fetch("https://api.resend.com/emails", {
@@ -118,7 +118,7 @@ function h(extra = {}) {
     body: JSON.stringify({
       from: vars.RESEND_FROM_EMAIL,
       to: email,
-      subject: "🔮 Seu acesso ao ATB TAROT IA está liberado",
+      subject: "🔮 Seu acesso ao ATB TAROT está liberado",
       html,
     }),
   });

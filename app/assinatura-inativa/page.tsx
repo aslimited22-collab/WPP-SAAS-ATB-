@@ -22,7 +22,7 @@ const DICT: Record<
   "pt-BR": {
     title: "Portal Inacessível",
     msg1Before: "Minha querida alma, as cartas indicam que sua jornada com o ",
-    brand: "ATB TAROT IA",
+    brand: "ATB TAROT",
     msg1After: " está pausada no momento.",
     msg2: "Para acessar suas leituras místicas e ouvir a voz de ATB, você precisa de uma assinatura ativa.",
     reactivate: "✦ Reativar Minha Assinatura — R$29/mês",
@@ -34,7 +34,7 @@ const DICT: Record<
   en: {
     title: "The Portal Is Locked",
     msg1Before: "Dear soul, the cards reveal that your journey with ",
-    brand: "ATB TAROT IA",
+    brand: "ATB TAROT",
     msg1After: " is paused for now.",
     msg2: "To access your mystical readings and hear ATB's voice, you need an active subscription.",
     reactivate: "✦ Reactivate My Subscription — $9/month",
@@ -46,7 +46,7 @@ const DICT: Record<
   es: {
     title: "Portal Inaccesible",
     msg1Before: "Querida alma, las cartas indican que tu camino con ",
-    brand: "ATB TAROT IA",
+    brand: "ATB TAROT",
     msg1After: " está en pausa por el momento.",
     msg2: "Para acceder a tus lecturas místicas y escuchar la voz de ATB, necesitas una suscripción activa.",
     reactivate: "✦ Reactivar Mi Suscripción — $9/mes",
@@ -58,7 +58,7 @@ const DICT: Record<
   de: {
     title: "Das Portal ist verschlossen",
     msg1Before: "Meine liebe Seele, die Karten zeigen, dass deine Reise mit ",
-    brand: "ATB TAROT IA",
+    brand: "ATB TAROT",
     msg1After: " gerade pausiert.",
     msg2: "Um deine mystischen Lesungen zu öffnen und ATBs Stimme zu hören, brauchst du ein aktives Abo.",
     reactivate: "✦ Mein Abo reaktivieren — 8 €/Monat",
@@ -70,7 +70,7 @@ const DICT: Record<
   it: {
     title: "Il Portale è Chiuso",
     msg1Before: "Anima cara, le carte rivelano che il tuo cammino con ",
-    brand: "ATB TAROT IA",
+    brand: "ATB TAROT",
     msg1After: " è in pausa per ora.",
     msg2: "Per accedere alle tue letture mistiche e ascoltare la voce di ATB, hai bisogno di un abbonamento attivo.",
     reactivate: "✦ Riattiva il Mio Abbonamento — 8 €/mese",

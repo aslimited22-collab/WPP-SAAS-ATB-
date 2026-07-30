@@ -30,8 +30,15 @@ export function detectUiLocale(): UiLocale {
 export function useUiLocale(): [UiLocale, (l: UiLocale) => void] {
   const [locale, setLocaleState] = useState<UiLocale>("pt-BR");
 
+  // O estado inicial é "pt-BR" nos DOIS lados (servidor e cliente) e só depois
+  // da montagem é corrigido para o idioma detectado. Isso é intencional:
+  // localStorage/navigator não existem no SSR, então detectar já no
+  // useState inicial faria o HTML do cliente divergir do servidor
+  // (erro de hidratação). Daí o setState no effect — que é exatamente o que a
+  // regra abaixo proíbe por padrão.
   useEffect(() => {
     const detected = detectUiLocale();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocaleState(detected);
     document.documentElement.lang = detected;
   }, []);

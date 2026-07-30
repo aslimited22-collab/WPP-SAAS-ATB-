@@ -18,11 +18,13 @@ export async function GET(request: NextRequest) {
   }
 
   const supabaseClient = await createServerSupabaseClient();
+  // getUser() revalida o token junto ao servidor de auth; getSession() apenas
+  // lê o cookie local e não deve ser usado como gate no servidor.
   const {
-    data: { session },
-  } = await supabaseClient.auth.getSession();
+    data: { user },
+  } = await supabaseClient.auth.getUser();
 
-  if (!session) {
+  if (!user) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
   const { data: credits, error } = await supabase
     .from("credits")
     .select("leituras_restantes, mes_referencia, updated_at")
-    .eq("user_id", session.user.id)
+    .eq("user_id", user.id)
     .single();
 
   if (error && error.code !== "PGRST116") {
