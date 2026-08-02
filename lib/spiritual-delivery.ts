@@ -56,60 +56,70 @@ export async function entregarTrabalho(
   const servicoNome = row?.nome ?? "Trabalho Espiritual";
   if (!slug) return { ...base, erro: "servico_invalido" };
 
-  // ── Idempotência: leitura já gerada? ───────────────────────────────────────
-  const { data: jaTem } = await supabase
+  // ── RETOMÁVEL, não "tudo ou nada" ─────────────────────────────────────────
+  // A geração leva dezenas de segundos (texto + imagem). Se a função for
+  // interrompida no meio (timeout da plataforma), cada etapa já concluída é
+  // reaproveitada na próxima chamada e o fluxo SEGUE do ponto em que parou —
+  // antes, um retorno antecipado deixava o pedido preso em 'pago' com o texto
+  // gerado e invisível para a cliente.
+  const { data: entregaveis } = await supabase
     .from("service_deliverables")
-    .select("id")
-    .eq("order_id", order.id)
-    .eq("tipo", "mensagem")
-    .maybeSingle();
+    .select("id, tipo")
+    .eq("order_id", order.id);
 
-  if (jaTem) {
-    return { ...base, ok: true, jaEntregue: true, texto: true };
-  }
+  const textoJaExiste = (entregaveis ?? []).some((d) => d.tipo === "mensagem");
+  const imagemJaExiste = (entregaveis ?? []).some((d) => d.tipo === "foto");
 
   // ── 1. Texto (essencial — se falhar, a entrega falha) ──────────────────────
-  let leitura: Awaited<ReturnType<typeof generateWorkReading>>;
-  try {
-    leitura = await generateWorkReading({
-      slug,
-      nomeCompleto: order.nome_completo_ritual,
-      intencao: order.intencao,
-    });
-  } catch (err) {
-    console.error(
-      "[Trabalhos] Falha ao gerar leitura:",
-      err instanceof Error ? err.message : ""
-    );
+  if (textoJaExiste) {
+    base.texto = true;
+  } else {
+    let leitura: Awaited<ReturnType<typeof generateWorkReading>>;
+    try {
+      leitura = await generateWorkReading({
+        slug,
+        nomeCompleto: order.nome_completo_ritual,
+        intencao: order.intencao,
+      });
+    } catch (err) {
+      console.error(
+        "[Trabalhos] Falha ao gerar leitura:",
+        err instanceof Error ? err.message : ""
+      );
+      await supabase
+        .from("service_orders")
+        .update({ status: "falhou", updated_at: new Date().toISOString() })
+        .eq("id", order.id);
+      return { ...base, erro: "geracao_texto_falhou" };
+    }
+
+    const { error: insTexto } = await supabase
+      .from("service_deliverables")
+      .insert({
+        order_id: order.id,
+        tipo: "mensagem",
+        conteudo_texto: leitura.text.slice(0, 4000),
+      });
+    if (insTexto) {
+      console.error("[Trabalhos] Falha ao gravar leitura:", insTexto.message);
+      return { ...base, erro: "persistencia_texto_falhou" };
+    }
+    base.texto = true;
+
+    // Guarda o JSON estruturado para a página renderizar bonito.
     await supabase
       .from("service_orders")
-      .update({ status: "falhou", updated_at: new Date().toISOString() })
+      .update({
+        leitura_json: leitura.json,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", order.id);
-    return { ...base, erro: "geracao_texto_falhou" };
   }
-
-  const { error: insTexto } = await supabase.from("service_deliverables").insert({
-    order_id: order.id,
-    tipo: "mensagem",
-    conteudo_texto: leitura.text.slice(0, 4000),
-  });
-  if (insTexto) {
-    console.error("[Trabalhos] Falha ao gravar leitura:", insTexto.message);
-    return { ...base, erro: "persistencia_texto_falhou" };
-  }
-  base.texto = true;
-
-  // Guarda o JSON estruturado para a página renderizar bonito.
-  await supabase
-    .from("service_orders")
-    .update({
-      leitura_json: leitura.json,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", order.id);
 
   // ── 2. Imagem simbólica (fail-soft) ────────────────────────────────────────
-  try {
+  if (imagemJaExiste) {
+    base.imagem = true;
+  } else try {
     const img = await generateWorkImage(slug);
     const path = `${order.id}/arte.${img.extension}`;
     const { error: upErr } = await supabase.storage
@@ -134,17 +144,30 @@ export async function entregarTrabalho(
   }
 
   // ── 3. Marcar entregue + avisar por e-mail ─────────────────────────────────
+  // O UPDATE é condicionado a status <> 'entregue': se duas execuções
+  // concorrerem (ou uma retomada rodar depois de a entrega já ter concluído),
+  // só UMA marca a entrega — e só essa manda o e-mail. Evita e-mail duplicado
+  // para a cliente.
   const nowIso = new Date().toISOString();
-  await supabase
+  const { data: marcados } = await supabase
     .from("service_orders")
     .update({ status: "entregue", entregue_em: nowIso, updated_at: nowIso })
-    .eq("id", order.id);
+    .eq("id", order.id)
+    .neq("status", "entregue")
+    .select("id");
+
+  const acabouDeEntregar = (marcados ?? []).length > 0;
 
   await supabase
     .from("service_deliverables")
     .update({ enviado_em: nowIso })
     .eq("order_id", order.id)
     .is("enviado_em", null);
+
+  if (!acabouDeEntregar) {
+    // Já estava entregue: nada a reenviar.
+    return { ...base, ok: true, jaEntregue: true };
+  }
 
   const mail = await sendServicoEntregaEmail({
     email: order.cliente_email,
