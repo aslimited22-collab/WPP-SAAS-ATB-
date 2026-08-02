@@ -95,7 +95,7 @@ const FAQ_COMUM: ServiceFaqItem[] = [
   {
     pergunta: "Meus dados e minha intenção ficam em sigilo?",
     resposta:
-      "Sim. Seu nome e sua intenção são usados exclusivamente para preparar o seu trabalho e nunca são compartilhados. Tudo fica em uma página privada, acessível só pelo link enviado para o seu e-mail.",
+      "Sim. Seu nome e sua intenção são usados exclusivamente para preparar o seu trabalho — nunca são vendidos, publicados nem usados para qualquer outra finalidade. Para escrever a sua leitura, o texto passa por provedores de tecnologia contratados, que o processam apenas para essa finalidade. O resultado fica em uma página privada, acessível só pelo link enviado para o seu e-mail.",
   },
 ];
 

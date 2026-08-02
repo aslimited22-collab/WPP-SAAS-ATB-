@@ -298,5 +298,11 @@ Responda APENAS com o JSON puro, sem markdown, sem texto antes ou depois.`;
 // pessoais para a API de imagem nem deixar o texto dela dirigir a cena.
 export async function generateWorkImage(slug: ServiceSlug) {
   const spec = WORK_SPECS[slug];
-  return openaiImage(`${spec.imagem}. ${IMAGE_STYLE}`, { size: "1024x1024" });
+  // 60s por modelo (medido ~37s). Com o fallback, o pior caso da imagem é
+  // 120s — o que mantém texto (2×90s) + imagem dentro do maxDuration da rota.
+  // Se ainda assim estourar, a entrega é retomável e continua de onde parou.
+  return openaiImage(`${spec.imagem}. ${IMAGE_STYLE}`, {
+    size: "1024x1024",
+    timeoutMs: 60_000,
+  });
 }
