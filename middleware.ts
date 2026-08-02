@@ -11,8 +11,12 @@ const PUBLIC_ROUTES = [
   // Landing das campanhas de Google Ads: tráfego pago chega deslogado.
   // Sem estar aqui, todo clique no anúncio seria redirecionado para /login.
   "/google-ads",
+  // Landings dos Trabalhos Espirituais: páginas públicas de venda.
+  "/servicos",
   "/api/webhooks/kiwify",
   "/api/webhooks/stripe",
+  // Mensagens recebidas do WhatsApp (protegido por token próprio na rota).
+  "/api/webhooks/zapi",
   "/api/auth",
   "/api/checkout",
   "/api/limpeza",

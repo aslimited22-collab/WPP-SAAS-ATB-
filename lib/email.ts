@@ -268,6 +268,59 @@ export async function sendLimpezaEmail(opts: {
   return sendEmail({ to: opts.email, subject: copy.subject, html });
 }
 
+// ─── E-mail de confirmação dos Trabalhos Espirituais ─────────────────────────
+// Equivalente ao WhatsApp de confirmação: orientação de preparação + pedido
+// do nome completo e da intenção. A copy final substituirá este texto.
+// Compliance: nunca afirma ritual realizado; nunca promete resultado.
+export async function sendServicoConfirmacaoEmail(opts: {
+  email: string;
+  nome?: string | null;
+  servicoNome: string;
+  temWhatsapp: boolean;
+}): Promise<EmailResult> {
+  const firstName =
+    escapeHtml((opts.nome ?? "").trim().split(/\s+/)[0]) || "querida alma";
+  const servico = escapeHtml(opts.servicoNome);
+
+  const canalResposta = opts.temWhatsapp
+    ? "Responda a mensagem que a ATB te enviou no <strong>WhatsApp</strong>"
+    : "Responda este e-mail";
+
+  const html = mysticLayout(`
+    <div style="font-size:56px;margin-bottom:14px;">🕊️</div>
+    <h1 style="color:#c9a84c;font-size:28px;margin:0 0 14px;">Seu pedido foi recebido</h1>
+    <p style="font-size:17px;line-height:1.65;margin:0 0 18px;">
+      Olá, <strong style="color:#c9a84c;">${firstName}</strong>!<br>
+      Sua compra do trabalho <strong style="color:#c9a84c;">${servico}</strong> foi confirmada.
+      Seu ritual será preparado e realizado individualmente, com o seu nome,
+      em até <strong>48 horas úteis</strong>.
+    </p>
+    <div style="text-align:left;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.3);border-radius:14px;padding:20px;margin:0 0 18px;">
+      <p style="color:#c9a84c;font-size:16px;font-weight:800;margin:0 0 10px;">✦ O que fazer agora</p>
+      <p style="font-size:16px;line-height:1.7;margin:0;">
+        ${canalResposta} com:<br>
+        1. Seu <strong>nome completo</strong><br>
+        2. A sua <strong>intenção</strong> — o que você deseja trabalhar neste ritual
+      </p>
+    </div>
+    <p style="font-size:16px;line-height:1.65;margin:0 0 18px;">
+      Assim que o ritual for realizado, você recebe o registro do trabalho
+      (foto e/ou áudio) e as orientações no seu WhatsApp.
+    </p>
+    <p style="color:#9a8f78;font-size:13px;line-height:1.6;margin:20px 0 0;">
+      Serviço de natureza espiritual e religiosa. Não substitui acompanhamento
+      médico, psicológico, jurídico ou financeiro. Você tem até 7 dias corridos
+      após a compra para pedir reembolso integral (art. 49 do CDC).
+    </p>
+  `);
+
+  return sendEmail({
+    to: opts.email,
+    subject: `🕊️ Seu trabalho "${opts.servicoNome}" foi confirmado`,
+    html,
+  });
+}
+
 // ─── Notificação de venda para o admin ───────────────────────────────────────
 export async function sendAdminSaleNotification(opts: {
   plan: string;
