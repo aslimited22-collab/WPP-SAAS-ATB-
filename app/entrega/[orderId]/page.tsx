@@ -5,6 +5,7 @@
 import { createServiceSupabaseClient } from "@/lib/supabase";
 import { normalizeLocale, type AppLocale } from "@/lib/locale";
 import type { FullReadingJson } from "@/lib/limpeza";
+import PersonalizarForm from "./PersonalizarForm";
 
 export const dynamic = "force-dynamic";
 
@@ -114,7 +115,7 @@ export default async function EntregaPage({
   const supabase = createServiceSupabaseClient();
   const { data: order } = await supabase
     .from("limpeza_orders")
-    .select("id, nome, status, locale")
+    .select("id, nome, status, locale, pergunta")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -165,8 +166,15 @@ export default async function EntregaPage({
 
   const r = reading.full_json as FullReadingJson;
 
+  // Quem comprou DIRETO na Kiwify não passou pelo funil: sem situação, a
+  // leitura acima saiu genérica. Oferecemos personalizar (regera a leitura).
+  const podePersonalizar = !(order.pergunta ?? "").trim();
+
   return (
     <Shell lang={locale}>
+      {podePersonalizar && (
+        <PersonalizarForm orderId={order.id} locale={locale} />
+      )}
       <div className="text-center mb-10">
         <div className="text-5xl mb-4 animate-float">🕊️</div>
         <h1 className="font-serif text-4xl gold-gradient-text mb-2">{r.title}</h1>

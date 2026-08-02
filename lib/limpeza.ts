@@ -209,47 +209,61 @@ Limites:
 
 Responda APENAS com o JSON puro, sem markdown, sem comentários, sem texto antes ou depois.`;
 
-  // OpenAI (gpt-5) é o gerador principal; DeepSeek é o fallback se a chave
-  // OpenAI não estiver configurada ou a chamada falhar.
-  let raw: string;
-  if (isOpenAiConfigured()) {
-    try {
-      raw = await openaiComplete(
-        [
-          { role: "system", content: FULL_SYSTEM },
-          { role: "user", content: userPrompt },
-        ],
-        { json: true }
-      );
-    } catch (err) {
-      console.warn(
-        "[Limpeza] OpenAI falhou, usando DeepSeek:",
-        err instanceof Error ? err.message : ""
-      );
-      raw = await deepseekComplete(
-        [
-          { role: "system", content: FULL_SYSTEM },
-          { role: "user", content: userPrompt },
-        ],
-        { temperature: STRUCTURED_TEMPERATURE }
-      );
+  // Uma tentativa de geração (OpenAI gpt-5 principal; DeepSeek como reserva
+  // quando a chave OpenAI não existe ou a chamada falha).
+  async function gerarBruto(reforco: boolean): Promise<string> {
+    const prompt = reforco
+      ? `${userPrompt}\n\nATENÇÃO: a resposta anterior veio fora do formato. Responda SOMENTE com o objeto JSON puro, começando com { e terminando com }, com TODAS as chaves listadas acima preenchidas. Sem markdown, sem crases, sem texto fora do JSON.`
+      : userPrompt;
+    const messages = [
+      { role: "system" as const, content: FULL_SYSTEM },
+      { role: "user" as const, content: prompt },
+    ];
+
+    if (isOpenAiConfigured()) {
+      try {
+        return await openaiComplete(messages, { json: true });
+      } catch (err) {
+        console.warn(
+          "[Limpeza] OpenAI falhou, usando DeepSeek:",
+          err instanceof Error ? err.message : ""
+        );
+      }
     }
-  } else {
-    raw = await deepseekComplete(
-      [
-        { role: "system", content: FULL_SYSTEM },
-        { role: "user", content: userPrompt },
-      ],
-      { temperature: STRUCTURED_TEMPERATURE }
-    );
+    return deepseekComplete(messages, { temperature: STRUCTURED_TEMPERATURE });
   }
 
-  const cleaned = raw.replace(/```json|```/g, "").trim();
-  const json = JSON.parse(cleaned) as FullReadingJson;
+  // Extrai o objeto JSON mesmo se o modelo cercar com texto/markdown.
+  function extrairJson(raw: string): FullReadingJson | null {
+    const limpo = raw.replace(/```json|```/g, "").trim();
+    const inicio = limpo.indexOf("{");
+    const fim = limpo.lastIndexOf("}");
+    const candidato =
+      inicio >= 0 && fim > inicio ? limpo.slice(inicio, fim + 1) : limpo;
+    try {
+      const parsed = JSON.parse(candidato) as FullReadingJson;
+      // Campos essenciais: sem eles a entrega não faz sentido.
+      if (!parsed.title || !parsed.opening || !parsed.spiritual_reading) {
+        return null;
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
 
-  if (!json.title || !json.opening || !json.spiritual_reading) {
+  // Uma resposta malformada já deixou um pedido pago sem entrega (o erro
+  // "estrutura inválida" abortava tudo e nada era retentado). Agora tentamos
+  // de novo, reforçando o formato, antes de desistir.
+  let json = extrairJson(await gerarBruto(false));
+  if (!json) {
+    console.warn("[Limpeza] JSON inválido na 1ª tentativa — tentando de novo");
+    json = extrairJson(await gerarBruto(true));
+  }
+  if (!json) {
     throw new Error("Leitura da limpeza voltou com estrutura inválida");
   }
+
   if (!Array.isArray(json.next_steps) || json.next_steps.length < 1) {
     json.next_steps = FALLBACK_STEPS[input.locale];
   }

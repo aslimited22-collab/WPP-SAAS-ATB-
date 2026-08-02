@@ -30,14 +30,12 @@
 import type { UiLocale } from "@/lib/use-locale";
 
 export type ServiceSlug =
-  | "limpeza-espiritual"
   | "corte-de-lacos"
   | "ritual-de-prosperidade"
   | "devocao-a-xango"
   | "harmonizacao-amorosa";
 
 export const SERVICE_SLUGS: ServiceSlug[] = [
-  "limpeza-espiritual",
   "corte-de-lacos",
   "ritual-de-prosperidade",
   "devocao-a-xango",
@@ -102,30 +100,6 @@ const FAQ_COMUM: ServiceFaqItem[] = [
 ];
 
 const PT_BR: Record<ServiceSlug, ServiceContent> = {
-  "limpeza-espiritual": {
-    emoji: "🕊️",
-    badge: "✦ Trabalho espiritual individual ✦",
-    titulo: "Limpeza Espiritual",
-    subtitulo:
-      "Um ritual de limpeza energética e proteção, realizado individualmente com o seu nome. Para quem sente o peso de energias densas e busca renovação, leveza e amparo espiritual.",
-    cta: "🕊️ Quero minha Limpeza Espiritual",
-    comoFuncionaTitulo: "Como funciona",
-    comoFunciona: [
-      "Você faz o pedido e recebe um e-mail com o link da sua página pessoal, onde escreve o seu nome completo e a sua intenção, junto com as orientações de preparação.",
-      "Seu ritual de limpeza é realizado individualmente, com o seu nome, em até 48 horas úteis.",
-      "Você recebe um e-mail avisando, e o registro do trabalho (foto e/ou áudio) com as orientações aparece na sua página pessoal.",
-    ],
-    oQueRecebeTitulo: "O que você recebe",
-    oQueRecebe: [
-      "Ritual de limpeza espiritual individual, realizado com o seu nome",
-      "Foto do trabalho realizado para você",
-      "Mensagem ou áudio com orientações espirituais para os próximos dias",
-      "Acolhimento e sigilo do início ao fim",
-    ],
-    faqTitulo: "Perguntas frequentes",
-    faq: FAQ_COMUM,
-  },
-
   "corte-de-lacos": {
     emoji: "🕯️",
     badge: "✦ Trabalho espiritual individual ✦",

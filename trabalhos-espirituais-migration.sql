@@ -47,13 +47,17 @@ CREATE TABLE IF NOT EXISTS public.spiritual_services (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Seed dos 5 trabalhos. ON CONFLICT DO NOTHING: re-executar a migration
+-- Seed dos trabalhos. ON CONFLICT DO NOTHING: re-executar a migration
 -- NÃO sobrescreve preços/URLs já ajustados manualmente no banco.
+--
+-- A LIMPEZA ESPIRITUAL (R$100) NÃO entra aqui de propósito: ela já existe
+-- como produto próprio, com funil (/limpeza), geração automática e entrega
+-- em /entrega/[orderId] (tabelas limpeza_orders/limpeza_readings). É o
+-- MESMO produto — duplicá-la aqui criaria dois caminhos para a mesma venda
+-- e colidiria com AMOUNT_CENTS_TO_PLAN (10000 → "limpeza") em lib/plans.ts.
 INSERT INTO public.spiritual_services
   (slug, nome, preco_centavos, descricao_curta, ativo, ordem)
 VALUES
-  ('limpeza-espiritual', 'Limpeza Espiritual', 10000,
-   'Limpeza energética e proteção espiritual, realizada individualmente com o seu nome.', true, 1),
   ('corte-de-lacos', 'Divórcio Energético', 14700,
    'Libertação energética e encerramento de ciclos — desapego para abrir espaço ao novo.', true, 2),
   ('ritual-de-prosperidade', 'Ritual de Prosperidade', 14700,
