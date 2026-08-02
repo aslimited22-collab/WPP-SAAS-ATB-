@@ -81,7 +81,7 @@ export default function ServicoLandingClient({
               </p>
             )}
             <div className="flex flex-wrap justify-center gap-x-5 gap-y-1 mt-5 text-[#9a8f78] text-sm">
-              <span>🕯️ {labels.entrega48h}</span>
+              <span>🕯️ {labels.entregaRapida}</span>
               <span>🤫 {labels.sigilo}</span>
             </div>
           </div>

@@ -7,16 +7,13 @@
 -- produtos-chat-limpeza-migration.sql.
 -- É idempotente: pode ser executado mais de uma vez.
 --
--- Modelo de entrega (100% por E-MAIL, sem WhatsApp):
+-- Modelo de entrega (100% AUTOMÁTICO, por E-MAIL, sem WhatsApp):
 --   compra → e-mail de confirmação com o LINK ÚNICO do pedido
---   (/pedido/<access_token>) → cliente preenche nome completo e intenção
---   nesse link → o OPERADOR realiza o ritual pessoalmente em até 48h
---   úteis e marca manualmente no painel → operador anexa o registro
---   (foto/áudio) e envia o e-mail de entrega, que aponta para o MESMO
---   link, onde o registro passa a aparecer.
+--   (/pedido/<access_token>) → a cliente escreve nome completo e intenção
+--   nesse link → a leitura (texto) e a imagem espiritual são geradas na
+--   hora por IA → tudo aparece na MESMA página e um e-mail avisa.
 --
--- O status `ritual_realizado` SÓ é marcado manualmente pelo operador —
--- nada no sistema afirma que um ritual aconteceu antes disso.
+-- Não há etapa manual: nada aqui depende de um operador.
 -- ============================================================
 
 -- ------------------------------------------------------------
@@ -70,10 +67,9 @@ ON CONFLICT (slug) DO NOTHING;
 
 -- ------------------------------------------------------------
 -- 2. SERVICE_ORDERS: pedidos dos trabalhos
--- Fluxo: pago → em_preparacao → ritual_realizado → entregue
---        (+ reembolsado, a qualquer momento)
--- Cada transição tem seu timestamp próprio, gravado pelo código no
--- momento da mudança de status.
+-- Fluxo: pago → (cliente preenche a intenção) → entregue
+--        falhou      → geração da IA não completou; dá para reprocessar
+--        reembolsado → estorno/chargeback, a qualquer momento
 -- ------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS public.service_orders (
@@ -88,14 +84,15 @@ CREATE TABLE IF NOT EXISTS public.service_orders (
   -- A mesma URL serve para preencher os dados e, depois, para ver o
   -- registro do ritual — o cliente guarda um link só.
   access_token UUID NOT NULL UNIQUE DEFAULT gen_random_uuid(),
-  -- Preenchidos pelo CLIENTE no formulário do link acima e revisados
-  -- pelo operador antes do ritual.
+  -- Preenchidos pela CLIENTE no formulário do link acima — é o que
+  -- personaliza a leitura e a imagem.
   nome_completo_ritual TEXT CHECK (char_length(nome_completo_ritual) <= 200),
   intencao TEXT CHECK (char_length(intencao) <= 4000),
-  intencao_aguardando_revisao BOOLEAN NOT NULL DEFAULT false,
   form_respondido_em TIMESTAMPTZ,
+  -- Leitura estruturada gerada pela IA (renderizada na página do pedido).
+  leitura_json JSONB,
   status TEXT NOT NULL DEFAULT 'pago' CHECK (status IN (
-    'pago', 'em_preparacao', 'ritual_realizado', 'entregue', 'reembolsado'
+    'pago', 'entregue', 'falhou', 'reembolsado'
   )),
   kiwify_order_id TEXT NOT NULL UNIQUE CHECK (char_length(kiwify_order_id) <= 128),
   amount_cents INT,
@@ -103,11 +100,9 @@ CREATE TABLE IF NOT EXISTS public.service_orders (
     CHECK (locale IN ('pt-BR', 'en', 'es', 'de', 'it')),
   -- Timestamps de cada transição de status
   pago_em TIMESTAMPTZ,
-  em_preparacao_em TIMESTAMPTZ,
-  ritual_realizado_em TIMESTAMPTZ,
   entregue_em TIMESTAMPTZ,
   reembolsado_em TIMESTAMPTZ,
-  -- Última vez que o lembrete de dados pendentes foi disparado (manual)
+  -- Última vez que o lembrete de dados pendentes foi enviado
   lembrete_enviado_em TIMESTAMPTZ,
   -- E-mail de confirmação pós-compra
   confirmacao_email_ok BOOLEAN,

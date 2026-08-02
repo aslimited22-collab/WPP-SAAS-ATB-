@@ -4,15 +4,14 @@
 //
 // CANAL: 100% e-mail (Resend). Não há WhatsApp neste produto.
 // O cliente recebe sempre o MESMO link (/pedido/<token>): primeiro para
-// preencher nome completo e intenção, depois para ver o registro do ritual.
+// escrever nome completo e intenção, e ali mesmo o trabalho fica pronto.
 //
 // COMPLIANCE (obrigatório em todo texto):
 //   • Nunca prometer resultado material (dinheiro, emprego, processo,
 //     retorno/afastamento de pessoa, cura). Nunca "garantido"/"infalível"/
 //     "100%".
-//   • O e-mail de confirmação NUNCA afirma que o ritual já foi realizado —
-//     diz que SERÁ realizado em até 48h úteis. Só o e-mail de entrega
-//     (disparado manualmente pelo operador) fala de ritual feito.
+//   • O e-mail de confirmação NUNCA afirma que o trabalho está pronto — ele
+//     só é preparado depois que a cliente escreve a intenção na página dela.
 
 import { DISCLAIMER_GERAL } from "@/content/servicos";
 
@@ -54,8 +53,6 @@ export function copyConfirmacao(opts: {
 
   // Variação por produto: uma linha de contexto espiritual própria.
   const linhas: Record<string, string> = {
-    "limpeza-espiritual":
-      "Vou preparar a sua Limpeza Espiritual com o seu nome, pedindo proteção e renovação das suas energias.",
     "corte-de-lacos":
       "Vou preparar o seu Divórcio Energético com o seu nome, pedindo a sua libertação, o encerramento desse ciclo e a abertura dos seus caminhos.",
     "ritual-de-prosperidade":
@@ -74,13 +71,13 @@ export function copyConfirmacao(opts: {
       linhas[opts.servicoSlug] ??
       "Vou preparar o seu trabalho espiritual com o seu nome e a sua intenção.",
     comoFunciona: [
-      "Clique no botão abaixo e me diga o seu nome completo e a sua intenção — o que você deseja trabalhar neste ritual.",
-      "Eu realizo o seu ritual pessoalmente, de forma individual, em até 48 horas úteis.",
-      "Você recebe um e-mail avisando, e nessa mesma página aparece o registro do trabalho (foto e/ou áudio) com as minhas orientações.",
+      "Clique no botão abaixo e me diga o seu nome completo e a sua intenção — o que você deseja trabalhar.",
+      "É a partir das suas palavras que eu preparo o seu trabalho, com o seu nome e a sua intenção.",
+      "Na mesma página aparecem a sua leitura e a sua imagem espiritual, com as minhas orientações.",
     ],
-    ctaLabel: "✦ Preencher meus dados do ritual",
+    ctaLabel: "✦ Escrever meu nome e minha intenção",
     ctaNota:
-      "Guarde este e-mail: esse mesmo link é onde você vai ver o registro do seu ritual quando ele ficar pronto.",
+      "Guarde este e-mail: esse mesmo link é a sua página, onde o seu trabalho fica guardado.",
     preparacao:
       "Nesses dias, se puder, beba bastante água, use roupas claras e reserve um momento de silêncio para pensar na sua intenção com calma.",
     assinatura: "Estou aqui com você. 💛 ATB",
@@ -88,34 +85,33 @@ export function copyConfirmacao(opts: {
 }
 
 // ─── 2. Lembrete de dados pendentes ──────────────────────────────────────────
-// Cliente não preencheu o formulário — disparo MANUAL pelo painel.
+// Cliente comprou mas não escreveu a intenção — disparo pelo painel.
 export function copyLembrete(opts: {
   nome: string | null | undefined;
   servicoNome: string;
 }) {
   const nome = primeiroNome(opts.nome);
   return {
-    assunto: `💛 Faltam só os seus dados para eu preparar o seu ritual`,
+    assunto: `💛 Faltam só os seus dados para eu preparar o seu trabalho`,
     titulo: "Ainda preciso dos seus dados",
-    corpo: `${nome}, é a ATB. Estou com o seu trabalho "${opts.servicoNome}" separado aqui, mas para eu realizar o seu ritual do jeito certo eu preciso que você me diga o seu nome completo e a sua intenção — o que você deseja trabalhar neste ritual.`,
+    corpo: `${nome}, é a ATB. Estou com o seu trabalho "${opts.servicoNome}" separado aqui, mas para eu preparar do jeito certo eu preciso que você me diga o seu nome completo e a sua intenção — o que você deseja trabalhar.`,
     ctaLabel: "✦ Preencher agora",
-    nota: "Pode escrever do seu jeito, sem pressa. Assim que você preencher, eu preparo tudo com muito carinho. 🕊️",
+    nota: "Pode escrever do seu jeito, sem pressa. Assim que você preencher, seu trabalho fica pronto ali mesmo. 🕊️",
   };
 }
 
-// ─── 3. Entrega final com o registro ─────────────────────────────────────────
-// Enviada pelo operador no painel ("Realizar entrega"). SÓ aqui o sistema
-// fala de ritual realizado — porque o operador marcou manualmente.
+// ─── 3. Entrega ──────────────────────────────────────────────────────────────
+// Enviada automaticamente quando a leitura e a imagem ficam prontas.
 export function copyEntrega(opts: {
   nome: string | null | undefined;
   servicoNome: string;
 }) {
   const nome = primeiroNome(opts.nome);
   return {
-    assunto: `🕊️ Seu trabalho "${opts.servicoNome}" foi realizado`,
-    titulo: "Seu ritual foi realizado",
-    corpo: `${nome}, é a ATB. Fiz o seu trabalho "${opts.servicoNome}" com muito respeito, com o seu nome e a sua intenção. O registro do seu ritual está guardado na sua página — é só tocar no botão abaixo para ver.`,
-    ctaLabel: "✨ Ver o registro do meu ritual",
+    assunto: `🕊️ Seu trabalho "${opts.servicoNome}" está pronto`,
+    titulo: "Seu trabalho está pronto",
+    corpo: `${nome}, é a ATB. Preparei o seu trabalho "${opts.servicoNome}" com muito respeito, com o seu nome e a sua intenção. A sua leitura e a sua imagem espiritual estão guardadas na sua página — é só tocar no botão abaixo.`,
+    ctaLabel: "✨ Ver o meu trabalho",
     orientacoes:
       "Nos próximos dias, mantenha o coração tranquilo, beba bastante água e, quando puder, acenda uma vela branca em um lugar seguro, agradecendo com as suas palavras.",
     assinatura: "Que você siga em paz, com proteção e leveza. Estou aqui. 💛 ATB",
@@ -129,7 +125,7 @@ export function copyFollowUpD3(opts: { nome: string | null | undefined }) {
   return {
     assunto: "💛 Passando para saber como você está",
     titulo: "Como está o seu coração?",
-    corpo: `${nome}, é a ATB passando só para te sentir. Como você está desde o seu ritual? Se quiser me contar qualquer coisa, é só responder este e-mail — leio com carinho. E lembre das orientações que te enviei, elas ajudam a manter a energia leve. 🕊️`,
+    corpo: `${nome}, é a ATB passando só para te sentir. Como você está desde o seu trabalho? Se quiser me contar qualquer coisa, é só responder este e-mail — leio com carinho. E lembre das orientações que te enviei, elas ajudam a manter a energia leve. 🕊️`,
   };
 }
 
@@ -150,7 +146,6 @@ export function copyOperadorNovoPedido(opts: {
       `E-mail: ${opts.clienteEmail}`,
       `Telefone (referência): ${opts.clienteTelefone || "(não informado)"}`,
       `Pedido Kiwify: ${opts.kiwifyOrderId}`,
-      `Prazo do ritual: 48h úteis.`,
     ],
     adminUrl: opts.adminUrl,
   };
@@ -167,7 +162,7 @@ export function copyOperadorReembolso(opts: {
       `Trabalho: ${opts.servicoNome}`,
       `E-mail: ${opts.clienteEmail}`,
       `Pedido Kiwify: ${opts.kiwifyOrderId}`,
-      `O pedido foi marcado como reembolsado. NÃO realizar o ritual.`,
+      `O pedido foi marcado como reembolsado.`,
     ],
   };
 }

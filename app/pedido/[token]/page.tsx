@@ -1,10 +1,10 @@
 // ─── /pedido/[token] — página única do cliente ───────────────────────────────
 // UM link para a jornada inteira (ideal para o público 60+: nada de app,
 // nada de login, sempre o mesmo endereço):
-//   • ainda não preencheu  → formulário (nome completo + intenção)
-//   • preencheu, sem entrega → status "ritual será realizado em até 48h úteis"
-//   • entregue              → registro do ritual (foto/áudio) + orientações
-//   • reembolsado           → aviso neutro
+//   • ainda não preencheu → formulário (nome completo + intenção)
+//   • entregue            → a leitura e a imagem espiritual dela
+//   • falhou              → convite a tentar de novo
+//   • reembolsado         → aviso neutro
 //
 // Pública: o access_token (UUID v4) é a credencial. A página é renderizada
 // no servidor com a service key; o cliente nunca fala com o banco.
@@ -39,37 +39,28 @@ export default async function PedidoPage({
   const { data: order } = await supabase
     .from("service_orders")
     .select(
-      "id, status, cliente_nome, nome_completo_ritual, intencao, form_respondido_em, spiritual_services(nome, slug)"
+      "id, status, cliente_nome, nome_completo_ritual, intencao, form_respondido_em, leitura_json, spiritual_services(nome, slug)"
     )
     .eq("access_token", token)
     .maybeSingle();
 
   if (!order) notFound();
 
-  // Registros só são expostos depois da entrega — antes disso o cliente não
-  // vê nada, mesmo que o operador já tenha anexado arquivos.
-  const registros: PedidoPublico["registros"] = [];
+  // A imagem só é exposta depois da entrega.
+  let imagemUrl: string | null = null;
   if (order.status === "entregue") {
-    const { data: deliverables } = await supabase
+    const { data: arte } = await supabase
       .from("service_deliverables")
-      .select("id, tipo, storage_path, conteudo_texto")
+      .select("storage_path")
       .eq("order_id", order.id)
-      .order("created_at", { ascending: true });
+      .eq("tipo", "foto")
+      .maybeSingle();
 
-    for (const d of deliverables ?? []) {
-      let url: string | null = null;
-      if (d.storage_path) {
-        const { data: signed } = await supabase.storage
-          .from("service-deliverables")
-          .createSignedUrl(d.storage_path, SIGNED_URL_SECONDS);
-        url = signed?.signedUrl ?? null;
-      }
-      registros.push({
-        id: d.id,
-        tipo: d.tipo as "foto" | "audio" | "mensagem",
-        url,
-        texto: d.conteudo_texto,
-      });
+    if (arte?.storage_path) {
+      const { data: signed } = await supabase.storage
+        .from("service-deliverables")
+        .createSignedUrl(arte.storage_path, SIGNED_URL_SECONDS);
+      imagemUrl = signed?.signedUrl ?? null;
     }
   }
 
@@ -79,9 +70,9 @@ export default async function PedidoPage({
     servicoNome: servicoNomeDe(order.spiritual_services),
     clienteNome: order.cliente_nome,
     nomeCompletoRitual: order.nome_completo_ritual,
-    intencao: order.intencao,
     respondido: Boolean(order.form_respondido_em),
-    registros,
+    leitura: (order.leitura_json as PedidoPublico["leitura"]) ?? null,
+    imagemUrl,
   };
 
   return <PedidoClient pedido={pedido} />;

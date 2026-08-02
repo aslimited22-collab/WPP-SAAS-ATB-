@@ -2,13 +2,12 @@
 // O CLIENTE envia o nome completo e a intenção do ritual pelo link único
 // (/pedido/<access_token>). Sem login: o token UUID é a credencial.
 //
+// Ao receber os dados, a leitura e a imagem espiritual são geradas NA HORA
+// e o pedido vai para 'entregue' — não há etapa manual.
+//
 // Regras:
-//   • só aceita pedidos em 'pago' ou 'em_preparacao' (não faz sentido depois
-//     do ritual realizado/entregue, nem em reembolsado);
-//   • grava marcando intencao_aguardando_revisao = true — o OPERADOR revisa
-//     antes de realizar o ritual;
-//   • permite reenvio enquanto o ritual não começou (cliente pode corrigir),
-//     e nesse caso o operador vê o texto atualizado.
+//   • só aceita pedidos em 'pago' ou 'falhou' (reprocessamento);
+//   • já entregue não aceita novo envio (a leitura não é regerada).
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceSupabaseClient } from "@/lib/supabase";
@@ -16,9 +15,12 @@ import { checkRateLimit } from "@/lib/ratelimit";
 import { servicoPedidoFormSchema } from "@/lib/validators";
 import { sendOperadorEmail } from "@/lib/email";
 import { servicoNomeDe } from "@/lib/spiritual-services";
+import { entregarTrabalho } from "@/lib/spiritual-delivery";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Gera texto + imagem por IA — precisa de folga.
+export const maxDuration = 300;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_BODY_BYTES = 16 * 1024;
@@ -83,11 +85,11 @@ export async function POST(
       { status: 422 }
     );
   }
-  if (order.status === "ritual_realizado" || order.status === "entregue") {
+  if (order.status === "entregue") {
     return NextResponse.json(
       {
         error:
-          "Seu ritual já foi realizado — não é mais possível alterar os dados. Se precisar de ajuda, responda o e-mail da sua compra.",
+          "Seu trabalho já está pronto — atualize a página para vê-lo. Se precisar de ajuda, responda o e-mail da sua compra.",
       },
       { status: 422 }
     );
@@ -99,7 +101,6 @@ export async function POST(
     .update({
       nome_completo_ritual: parsed.data.nome_completo,
       intencao: parsed.data.intencao,
-      intencao_aguardando_revisao: true,
       form_respondido_em: nowIso,
       updated_at: nowIso,
     })
@@ -113,19 +114,36 @@ export async function POST(
     );
   }
 
-  // Avisa o operador que há dados novos para revisar (fail-soft).
   const baseUrl = (
     process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin
   ).replace(/\/$/, "");
-  await sendOperadorEmail({
-    assunto: `✉️ Dados recebidos — ${servicoNomeDe(order.spiritual_services)}`,
-    linhas: [
-      `Cliente: ${order.cliente_email}`,
-      `Nome para o ritual: ${parsed.data.nome_completo}`,
-      "O cliente preencheu a intenção. Revise no painel antes de realizar o ritual.",
-    ],
-    adminUrl: `${baseUrl}/admin/pedidos/${order.id}`,
+
+  // ── Geração e entrega imediatas ───────────────────────────────────────────
+  const entrega = await entregarTrabalho(supabase, {
+    orderId: order.id,
+    baseUrl,
   });
+
+  if (!entrega.ok) {
+    // Os dados ficaram salvos: a cliente pode tentar de novo e o admin
+    // consegue reprocessar. Avisamos para ninguém ficar sem entrega.
+    await sendOperadorEmail({
+      assunto: `⚠️ Falha ao gerar — ${servicoNomeDe(order.spiritual_services)}`,
+      linhas: [
+        `Cliente: ${order.cliente_email}`,
+        `Motivo: ${entrega.erro ?? "desconhecido"}`,
+        "Os dados da cliente estão salvos. Reprocesse pelo painel.",
+      ],
+      adminUrl: `${baseUrl}/admin/pedidos/${order.id}`,
+    });
+    return NextResponse.json(
+      {
+        error:
+          "Recebi os seus dados, mas não consegui preparar agora. Tente de novo em alguns instantes.",
+      },
+      { status: 502 }
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }

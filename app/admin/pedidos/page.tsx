@@ -15,11 +15,10 @@ import {
 export const dynamic = "force-dynamic";
 
 const STATUS_LABEL: Record<string, string> = {
-  pago: "🟡 Pago",
-  em_preparacao: "🔵 Em preparação",
-  ritual_realizado: "🟣 Ritual realizado",
+  pago: "🟡 Aguardando dados",
   entregue: "🟢 Entregue",
-  reembolsado: "🔴 Reembolsado",
+  falhou: "🔴 Falhou",
+  reembolsado: "⚪ Reembolsado",
 };
 
 interface OrderRow {
@@ -30,7 +29,6 @@ interface OrderRow {
   cliente_telefone: string | null;
   form_respondido_em: string | null;
   intencao: string | null;
-  intencao_aguardando_revisao: boolean;
   created_at: string;
   spiritual_services: { nome: string; slug: string } | null;
 }
@@ -51,7 +49,7 @@ export default async function AdminPedidosPage({
   let query = supabase
     .from("service_orders")
     .select(
-      "id, status, cliente_nome, cliente_email, cliente_telefone, intencao, intencao_aguardando_revisao, form_respondido_em, created_at, spiritual_services(nome, slug)"
+      "id, status, cliente_nome, cliente_email, cliente_telefone, intencao, form_respondido_em, created_at, spiritual_services(nome, slug)"
     )
     .order("created_at", { ascending: false })
     .limit(200);
@@ -148,11 +146,6 @@ export default async function AdminPedidosPage({
                   {o.cliente_nome ?? "(sem nome)"}
                 </span>
                 <span className="text-[#888] text-sm">{o.cliente_email}</span>
-                {o.intencao_aguardando_revisao && (
-                  <span className="text-xs bg-[#c9a84c]/20 text-[#c9a84c] border border-[#c9a84c]/40 rounded-full px-3 py-1">
-                    ✉️ Dados recebidos — revisar
-                  </span>
-                )}
                 {!o.form_respondido_em && (
                   <span className="text-xs text-[#666] border border-[#2a2a2a] rounded-full px-3 py-1">
                     Aguardando dados do cliente

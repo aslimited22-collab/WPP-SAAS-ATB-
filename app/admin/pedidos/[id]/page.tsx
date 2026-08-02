@@ -1,6 +1,5 @@
-// ─── /admin/pedidos/[id] — detalhe do pedido (operador) ──────────────────────
-// Server Component: carrega pedido + registros (com signed URLs de preview
-// do bucket privado) e delega ações ao client component.
+// ─── /admin/pedidos/[id] — detalhe do pedido ─────────────────────────────────
+// A entrega é automática; o painel acompanha e permite agir quando falha.
 
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -12,7 +11,6 @@ import PedidoDetailClient, { type PedidoData } from "./PedidoDetailClient";
 export const dynamic = "force-dynamic";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const PREVIEW_URL_SECONDS = 60 * 60; // 1h — só para o operador visualizar
 
 export default async function AdminPedidoDetailPage({
   params,
@@ -29,7 +27,7 @@ export default async function AdminPedidoDetailPage({
   const { data: order } = await supabase
     .from("service_orders")
     .select(
-      "id, status, cliente_nome, cliente_email, cliente_telefone, access_token, nome_completo_ritual, intencao, intencao_aguardando_revisao, form_respondido_em, kiwify_order_id, amount_cents, pago_em, em_preparacao_em, ritual_realizado_em, entregue_em, reembolsado_em, lembrete_enviado_em, confirmacao_email_ok, created_at, spiritual_services(nome, slug)"
+      "id, status, cliente_nome, cliente_email, cliente_telefone, access_token, nome_completo_ritual, intencao, form_respondido_em, leitura_json, kiwify_order_id, amount_cents, pago_em, entregue_em, reembolsado_em, lembrete_enviado_em, confirmacao_email_ok, created_at, spiritual_services(nome, slug)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -38,20 +36,8 @@ export default async function AdminPedidoDetailPage({
 
   const { data: deliverables } = await supabase
     .from("service_deliverables")
-    .select("id, tipo, storage_path, conteudo_texto, enviado_em, created_at")
-    .eq("order_id", id)
-    .order("created_at", { ascending: true });
-
-  // Signed URLs de preview (o bucket é privado).
-  const previews: Record<string, string> = {};
-  for (const d of deliverables ?? []) {
-    if (d.storage_path) {
-      const { data: signed } = await supabase.storage
-        .from("service-deliverables")
-        .createSignedUrl(d.storage_path, PREVIEW_URL_SECONDS);
-      if (signed?.signedUrl) previews[d.id] = signed.signedUrl;
-    }
-  }
+    .select("tipo")
+    .eq("order_id", id);
 
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
 
@@ -65,25 +51,17 @@ export default async function AdminPedidoDetailPage({
     pedidoUrl: `${baseUrl}/pedido/${order.access_token}`,
     nomeCompletoRitual: order.nome_completo_ritual,
     intencao: order.intencao,
-    intencaoAguardandoRevisao: order.intencao_aguardando_revisao,
     formRespondidoEm: order.form_respondido_em,
     kiwifyOrderId: order.kiwify_order_id,
     amountCents: order.amount_cents,
     pagoEm: order.pago_em,
-    emPreparacaoEm: order.em_preparacao_em,
-    ritualRealizadoEm: order.ritual_realizado_em,
     entregueEm: order.entregue_em,
     reembolsadoEm: order.reembolsado_em,
     lembreteEnviadoEm: order.lembrete_enviado_em,
     confirmacaoEmailOk: order.confirmacao_email_ok,
     createdAt: order.created_at,
-    deliverables: (deliverables ?? []).map((d) => ({
-      id: d.id,
-      tipo: d.tipo,
-      enviadoEm: d.enviado_em,
-      previewUrl: previews[d.id] ?? null,
-      conteudoTexto: d.conteudo_texto,
-    })),
+    temLeitura: Boolean(order.leitura_json),
+    temImagem: (deliverables ?? []).some((d) => d.tipo === "foto"),
   };
 
   return (

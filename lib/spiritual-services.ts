@@ -1,12 +1,10 @@
 // ─── Trabalhos Espirituais: catálogo, pedidos e confirmação pós-compra ───────
-// Modelo de entrega híbrida, com E-MAIL como canal único (sem WhatsApp):
+// Entrega 100% AUTOMÁTICA, com E-MAIL como canal único (sem WhatsApp):
 // compra → e-mail de confirmação com o LINK ÚNICO do pedido (/pedido/<token>)
-// → cliente preenche nome completo e intenção nesse link → o OPERADOR realiza
-// o ritual em até 48h úteis → entrega manual pelo painel /admin/pedidos, que
-// envia o e-mail apontando para o MESMO link, onde o registro aparece.
+// → a cliente escreve nome completo e intenção nesse link → leitura e imagem
+// são geradas por IA na hora e aparecem nessa mesma página.
 //
-// Nada aqui afirma que um ritual foi realizado — isso só acontece quando o
-// operador marca manualmente no painel.
+// Nenhum texto daqui afirma que o trabalho está pronto antes de ele existir.
 
 import type { createServiceSupabaseClient } from "@/lib/supabase";
 import { deepseekComplete } from "@/lib/deepseek";
@@ -29,21 +27,11 @@ export interface SpiritualService {
 
 export const SERVICE_ORDER_STATUSES = [
   "pago",
-  "em_preparacao",
-  "ritual_realizado",
   "entregue",
+  "falhou",
   "reembolsado",
 ] as const;
 export type ServiceOrderStatus = (typeof SERVICE_ORDER_STATUSES)[number];
-
-// Coluna de timestamp correspondente a cada transição de status.
-export const STATUS_TIMESTAMP_COLUMN: Record<ServiceOrderStatus, string> = {
-  pago: "pago_em",
-  em_preparacao: "em_preparacao_em",
-  ritual_realizado: "ritual_realizado_em",
-  entregue: "entregue_em",
-  reembolsado: "reembolsado_em",
-};
 
 // Mantém apenas dígitos — telefone guardado só como referência de contato
 // para o operador (o canal de comunicação do produto é e-mail).
@@ -51,8 +39,8 @@ export function soDigitos(phone: string | null | undefined): string {
   return (phone ?? "").replace(/\D/g, "");
 }
 
-// URL do link único do cliente — a mesma página serve para preencher os
-// dados e, depois, para ver o registro do ritual.
+// URL do link único do cliente — a mesma página serve para escrever os
+// dados e, depois, para ver a leitura e a imagem.
 export function pedidoUrl(baseUrl: string, accessToken: string): string {
   return `${baseUrl.replace(/\/$/, "")}/pedido/${accessToken}`;
 }
@@ -117,7 +105,7 @@ export async function findServiceByKiwifyProductId(
 // UM parágrafo de acolhimento, inserido no template fixo de confirmação.
 // Regras rígidas (reforçadas no prompt E validadas na saída):
 //   • é acolhimento + orientação de preparação, nada além;
-//   • NUNCA afirma que o ritual já foi feito (ele SERÁ feito em até 48h úteis);
+//   • NUNCA afirma que o trabalho já está pronto;
 //   • NUNCA promete resultado.
 // Fallback automático para o parágrafo estático se a API falhar, demorar
 // mais de 5s ou a saída violar as regras.
@@ -138,8 +126,8 @@ export async function gerarAcolhimento(opts: {
 
 REGRAS OBRIGATÓRIAS:
 - Tom: acolhedor, caloroso, espiritual, em português brasileiro coloquial.
-- Diga que o pedido foi recebido com carinho e que o ritual dela SERÁ preparado e realizado pessoalmente em até 48 horas úteis. Use o futuro — o ritual AINDA NÃO foi feito.
-- NUNCA afirme que o ritual já foi realizado, iniciado ou está pronto.
+- Diga que o pedido foi recebido com carinho e convide-a a escrever o nome completo e a intenção na página dela, porque é a partir dessas palavras que o trabalho é preparado. Use o futuro — o trabalho AINDA NÃO está pronto.
+- NUNCA afirme que o trabalho já foi feito, iniciado ou está pronto.
 - NUNCA prometa nenhum resultado (nada de dinheiro, amor de pessoa específica, vitória, cura, "vai dar certo"). Fale de fé, intenção, cuidado e acolhimento.
 - Sem markdown, sem asteriscos, sem emojis, sem listas. Texto puro.`;
 
