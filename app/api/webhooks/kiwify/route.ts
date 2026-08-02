@@ -27,8 +27,9 @@ import {
   findServiceByKiwifyProductId,
   processarCompraServico,
   notifyOperator,
+  servicoNomeDe,
 } from "@/lib/spiritual-services";
-import { mensagemOperadorReembolso } from "@/content/mensagens-servicos";
+import { copyOperadorReembolso } from "@/content/mensagens-servicos";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -394,9 +395,62 @@ export async function POST(request: NextRequest) {
         // O external_reference só é honrado quando o produto pago É limpeza —
         // um UUID forjado anexado a outro produto não pode sequestrar a
         // entrega da limpeza nem pular o provisionamento do produto real.
+        const planFromEnv = resolvePlanFromEnv(productId, "KIWIFY_PRODUCT");
+
+        // ── 6a-1. GUARDA ANTI-COLISÃO DE PREÇO ─────────────────────────────
+        // Os Trabalhos Espirituais são identificados só por kiwify_product_id
+        // (três deles custam R$147 — valor nunca desambigua). Se o product_id
+        // ainda não foi cadastrado em spiritual_services, o fallback por valor
+        // abaixo classificaria a compra como outro produto: R$100 colide com
+        // `limpeza` em AMOUNT_CENTS_TO_PLAN, e a cliente receberia a limpeza
+        // automática gerada por IA em vez do ritual feito à mão — entregando
+        // um "trabalho" que ninguém realizou.
+        // Aqui paramos: registramos e avisamos o operador para cadastrar o
+        // product_id e criar o pedido manualmente. 200 evita retry infinito.
+        if (!planFromEnv && amountCents != null) {
+          const { data: colisao } = await supabase
+            .from("spiritual_services")
+            .select("slug, nome")
+            .eq("preco_centavos", amountCents)
+            .limit(1)
+            .maybeSingle();
+
+          if (colisao) {
+            await logAudit(supabase, {
+              action: "KIWIFY_SERVICO_SEM_PRODUCT_ID",
+              ipAddress,
+              metadata: {
+                order_id: orderId,
+                product_id: productId,
+                amount_cents: amountCents,
+                possivel_servico: colisao.slug,
+              },
+            });
+            await notifyOperator({
+              assunto: `⚠️ Pedido não provisionado — ${colisao.nome}`,
+              linhas: [
+                `Chegou uma compra de ${(amountCents / 100).toFixed(2)} BRL, valor do trabalho "${colisao.nome}".`,
+                `Mas o product_id da Kiwify (${productId ?? "não enviado"}) NÃO está cadastrado em spiritual_services.`,
+                "",
+                `Cliente: ${email}`,
+                `Pedido Kiwify: ${orderId}`,
+                "",
+                "AÇÃO: cadastre o product_id na tabela spiritual_services (UPDATE ... WHERE slug='" +
+                  colisao.slug +
+                  "') e crie o pedido manualmente. Nada foi entregue à cliente.",
+              ],
+            });
+            console.error(
+              "[Kiwify] Trabalho Espiritual sem product_id cadastrado:",
+              colisao.slug,
+              amountCents
+            );
+            return NextResponse.json({ ok: true, unmapped: true });
+          }
+        }
+
         const planKey: PlanKey | null =
-          resolvePlanFromEnv(productId, "KIWIFY_PRODUCT") ??
-          resolvePlanFromAmount(amountCents);
+          planFromEnv ?? resolvePlanFromAmount(amountCents);
 
         // ── 6b. Limpeza vinda do funil /limpeza (external_reference UUID) ──
         if (planKey === "limpeza" && externalRef && UUID_RE.test(externalRef)) {
@@ -733,16 +787,13 @@ export async function POST(request: NextRequest) {
           })
           .eq("id", refundedServiceOrder.id);
 
-        const servicoNome =
-          (refundedServiceOrder.spiritual_services as { nome?: string } | null)
-            ?.nome ?? "Trabalho Espiritual";
-        await notifyOperator(
-          mensagemOperadorReembolso({
-            servicoNome,
-            clienteEmail: refundedServiceOrder.cliente_email,
-            kiwifyOrderId: orderId,
-          })
-        );
+        const servicoNome = servicoNomeDe(refundedServiceOrder.spiritual_services);
+        const aviso = copyOperadorReembolso({
+          servicoNome,
+          clienteEmail: refundedServiceOrder.cliente_email,
+          kiwifyOrderId: orderId,
+        });
+        await notifyOperator({ assunto: aviso.assunto, linhas: aviso.linhas });
       }
 
       await logAudit(supabase, {

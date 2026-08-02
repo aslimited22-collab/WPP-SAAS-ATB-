@@ -13,10 +13,12 @@ const PUBLIC_ROUTES = [
   "/google-ads",
   // Landings dos Trabalhos Espirituais: páginas públicas de venda.
   "/servicos",
+  // Link único do cliente (o access_token do pedido é a credencial):
+  // formulário de dados do ritual e, depois, o registro entregue.
+  "/pedido",
+  "/api/pedido",
   "/api/webhooks/kiwify",
   "/api/webhooks/stripe",
-  // Mensagens recebidas do WhatsApp (protegido por token próprio na rota).
-  "/api/webhooks/zapi",
   "/api/auth",
   "/api/checkout",
   "/api/limpeza",

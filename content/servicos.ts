@@ -83,7 +83,7 @@ const FAQ_COMUM: ServiceFaqItem[] = [
   {
     pergunta: "Em quanto tempo o trabalho é realizado?",
     resposta:
-      "Seu ritual é preparado e realizado individualmente em até 48 horas úteis após a confirmação do pagamento. Assim que for realizado, você recebe o registro (foto e/ou áudio) e as orientações no seu WhatsApp.",
+      "Seu ritual é preparado e realizado individualmente em até 48 horas úteis após a confirmação do pagamento. Assim que for realizado, você recebe um e-mail e o registro do trabalho (foto e/ou áudio) aparece na sua página pessoal do pedido.",
   },
   {
     pergunta: "Posso pedir reembolso?",
@@ -97,7 +97,7 @@ const FAQ_COMUM: ServiceFaqItem[] = [
   {
     pergunta: "Meus dados e minha intenção ficam em sigilo?",
     resposta:
-      "Sim. Seu nome e sua intenção são usados exclusivamente na realização do seu ritual e nunca são compartilhados. O registro do trabalho é enviado somente para o seu WhatsApp.",
+      "Sim. Seu nome e sua intenção são usados exclusivamente na realização do seu ritual e nunca são compartilhados. O registro do trabalho fica em uma página privada, acessível só pelo link enviado para o seu e-mail.",
   },
 ];
 
@@ -111,9 +111,9 @@ const PT_BR: Record<ServiceSlug, ServiceContent> = {
     cta: "🕊️ Quero minha Limpeza Espiritual",
     comoFuncionaTitulo: "Como funciona",
     comoFunciona: [
-      "Você faz o pedido e recebe no WhatsApp as orientações de preparação, junto com o pedido do seu nome completo e da sua intenção.",
+      "Você faz o pedido e recebe um e-mail com o link da sua página pessoal, onde escreve o seu nome completo e a sua intenção, junto com as orientações de preparação.",
       "Seu ritual de limpeza é realizado individualmente, com o seu nome, em até 48 horas úteis.",
-      "Você recebe no WhatsApp o registro do trabalho (foto e/ou áudio) e as orientações para os próximos dias.",
+      "Você recebe um e-mail avisando, e o registro do trabalho (foto e/ou áudio) com as orientações aparece na sua página pessoal.",
     ],
     oQueRecebeTitulo: "O que você recebe",
     oQueRecebe: [
@@ -135,9 +135,9 @@ const PT_BR: Record<ServiceSlug, ServiceContent> = {
     cta: "🕯️ Quero meu Divórcio Energético",
     comoFuncionaTitulo: "Como funciona",
     comoFunciona: [
-      "Você faz o pedido e recebe no WhatsApp as orientações de preparação, junto com o pedido do seu nome completo e da sua intenção.",
+      "Você faz o pedido e recebe um e-mail com o link da sua página pessoal, onde escreve o seu nome completo e a sua intenção, junto com as orientações de preparação.",
       "Seu ritual de libertação é realizado individualmente, com o seu nome, em até 48 horas úteis.",
-      "Você recebe no WhatsApp o registro do trabalho (foto e/ou áudio) e as orientações para os próximos dias.",
+      "Você recebe um e-mail avisando, e o registro do trabalho (foto e/ou áudio) com as orientações aparece na sua página pessoal.",
     ],
     oQueRecebeTitulo: "O que você recebe",
     oQueRecebe: [
@@ -166,9 +166,9 @@ const PT_BR: Record<ServiceSlug, ServiceContent> = {
     cta: "🌾 Quero meu Ritual de Prosperidade",
     comoFuncionaTitulo: "Como funciona",
     comoFunciona: [
-      "Você faz o pedido e recebe no WhatsApp as orientações de preparação, junto com o pedido do seu nome completo e da sua intenção.",
+      "Você faz o pedido e recebe um e-mail com o link da sua página pessoal, onde escreve o seu nome completo e a sua intenção, junto com as orientações de preparação.",
       "Seu ritual de prosperidade é realizado individualmente, com o seu nome, em até 48 horas úteis.",
-      "Você recebe no WhatsApp o registro do trabalho (foto e/ou áudio) e as orientações para os próximos dias.",
+      "Você recebe um e-mail avisando, e o registro do trabalho (foto e/ou áudio) com as orientações aparece na sua página pessoal.",
     ],
     oQueRecebeTitulo: "O que você recebe",
     oQueRecebe: [
@@ -197,9 +197,9 @@ const PT_BR: Record<ServiceSlug, ServiceContent> = {
     cta: "⚖️ Quero minha Devoção a Xangô",
     comoFuncionaTitulo: "Como funciona",
     comoFunciona: [
-      "Você faz o pedido e recebe no WhatsApp as orientações de preparação, junto com o pedido do seu nome completo e da sua intenção.",
+      "Você faz o pedido e recebe um e-mail com o link da sua página pessoal, onde escreve o seu nome completo e a sua intenção, junto com as orientações de preparação.",
       "Sua devoção a Xangô é realizada individualmente, com o seu nome, em até 48 horas úteis.",
-      "Você recebe no WhatsApp o registro do trabalho (foto e/ou áudio) e as orientações para os próximos dias.",
+      "Você recebe um e-mail avisando, e o registro do trabalho (foto e/ou áudio) com as orientações aparece na sua página pessoal.",
     ],
     oQueRecebeTitulo: "O que você recebe",
     oQueRecebe: [
@@ -230,9 +230,9 @@ const PT_BR: Record<ServiceSlug, ServiceContent> = {
     cta: "💛 Quero minha Harmonização Amorosa",
     comoFuncionaTitulo: "Como funciona",
     comoFunciona: [
-      "Você faz o pedido e recebe no WhatsApp as orientações de preparação, junto com o pedido do seu nome completo e da sua intenção.",
+      "Você faz o pedido e recebe um e-mail com o link da sua página pessoal, onde escreve o seu nome completo e a sua intenção, junto com as orientações de preparação.",
       "Seu ritual de harmonização é realizado individualmente, com o seu nome, em até 48 horas úteis.",
-      "Você recebe no WhatsApp o registro do trabalho (foto e/ou áudio) e as orientações para os próximos dias.",
+      "Você recebe um e-mail avisando, e o registro do trabalho (foto e/ou áudio) com as orientações aparece na sua página pessoal.",
     ],
     oQueRecebeTitulo: "O que você recebe",
     oQueRecebe: [
@@ -268,7 +268,7 @@ const PT_BR_INDEX: ServicosIndexContent = {
   badge: "✦ Trabalhos espirituais individuais ✦",
   titulo: "Trabalhos Espirituais da ATB",
   subtitulo:
-    "Rituais realizados individualmente, com o seu nome e a sua intenção. Você recebe o registro do trabalho (foto e/ou áudio) e as orientações direto no seu WhatsApp, em até 48 horas úteis.",
+    "Rituais realizados individualmente, com o seu nome e a sua intenção. Tudo acontece por e-mail: você recebe o link da sua página pessoal e, em até 48 horas úteis, o registro do trabalho (foto e/ou áudio) com as orientações.",
   verTrabalho: "Ver este trabalho",
   emBreve: "Em breve",
   disclaimer: DISCLAIMER_GERAL,

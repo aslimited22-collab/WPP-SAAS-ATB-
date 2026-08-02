@@ -21,11 +21,12 @@ export interface PedidoData {
   servicoNome: string;
   clienteNome: string | null;
   clienteEmail: string;
-  clienteWhatsapp: string | null;
+  clienteTelefone: string | null;
+  pedidoUrl: string;
   nomeCompletoRitual: string | null;
   intencao: string | null;
-  intencaoBruta: string | null;
   intencaoAguardandoRevisao: boolean;
+  formRespondidoEm: string | null;
   kiwifyOrderId: string;
   amountCents: number | null;
   pagoEm: string | null;
@@ -34,7 +35,6 @@ export interface PedidoData {
   entregueEm: string | null;
   reembolsadoEm: string | null;
   lembreteEnviadoEm: string | null;
-  confirmacaoWhatsappOk: boolean | null;
   confirmacaoEmailOk: boolean | null;
   createdAt: string;
   deliverables: PedidoDeliverable[];
@@ -130,8 +130,8 @@ export default function PedidoDetailClient({ pedido }: { pedido: PedidoData }) {
             <span className="text-[#888]">E-mail:</span> {pedido.clienteEmail}
           </p>
           <p>
-            <span className="text-[#888]">WhatsApp:</span>{" "}
-            {pedido.clienteWhatsapp ?? "(não informado)"}
+            <span className="text-[#888]">Telefone (referência):</span>{" "}
+            {pedido.clienteTelefone ?? "(não informado)"}
           </p>
           <p>
             <span className="text-[#888]">Pedido Kiwify:</span>{" "}
@@ -148,15 +148,7 @@ export default function PedidoDetailClient({ pedido }: { pedido: PedidoData }) {
             {fmtData(pedido.createdAt)}
           </p>
           <p>
-            <span className="text-[#888]">Confirmação WhatsApp:</span>{" "}
-            {pedido.confirmacaoWhatsappOk == null
-              ? "—"
-              : pedido.confirmacaoWhatsappOk
-                ? "✓ enviada"
-                : "✗ falhou"}
-          </p>
-          <p>
-            <span className="text-[#888]">Confirmação e-mail:</span>{" "}
+            <span className="text-[#888]">E-mail de confirmação:</span>{" "}
             {pedido.confirmacaoEmailOk == null
               ? "—"
               : pedido.confirmacaoEmailOk
@@ -192,30 +184,29 @@ export default function PedidoDetailClient({ pedido }: { pedido: PedidoData }) {
         </div>
       )}
 
-      {/* ── Texto bruto do WhatsApp ───────────────────────────────────── */}
+      {/* ── Link único do cliente ─────────────────────────────────────── */}
       <section className="mystic-card p-6">
         <h2 className="text-[#c9a84c] font-medium mb-3">
-          ✉️ Resposta do cliente no WhatsApp{" "}
+          🔗 Link do cliente{" "}
           {pedido.intencaoAguardandoRevisao && (
             <span className="text-xs bg-[#c9a84c]/20 border border-[#c9a84c]/40 rounded-full px-3 py-1 ml-2">
-              aguardando revisão
+              dados recebidos — revisar
             </span>
           )}
         </h2>
-        {pedido.intencaoBruta ? (
-          <pre className="whitespace-pre-wrap text-[#e8e0d0] text-sm bg-[#111] border border-[#2a2a2a] rounded-lg p-4 font-sans">
-            {pedido.intencaoBruta}
-          </pre>
-        ) : (
-          <p className="text-[#666] text-sm">
-            Nenhuma mensagem capturada ainda. O cliente deve responder no
-            WhatsApp com nome completo e intenção.
-          </p>
-        )}
-        <p className="text-[#666] text-xs mt-3">
-          A mensagem pode conter nome completo e intenção juntos — organize
-          você mesmo nos campos abaixo e salve.
+        <p className="text-[#c2b9a4] text-sm mb-3">
+          {pedido.formRespondidoEm
+            ? `O cliente preencheu os dados em ${fmtData(pedido.formRespondidoEm)}. Revise os campos abaixo antes de realizar o ritual.`
+            : "O cliente ainda não preencheu os dados. Use o botão de lembrete se já fizer 24h."}
         </p>
+        <a
+          href={pedido.pedidoUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[#c9a84c] text-sm underline break-all"
+        >
+          {pedido.pedidoUrl}
+        </a>
       </section>
 
       {/* ── Campos do ritual (editáveis) ──────────────────────────────── */}
@@ -364,7 +355,7 @@ export default function PedidoDetailClient({ pedido }: { pedido: PedidoData }) {
                   fetch(`/api/admin/pedidos/${pedido.id}/entregar`, {
                     method: "POST",
                   }),
-                `Enviar agora a mensagem de entrega + ${pedido.deliverables.length} registro(s) para o WhatsApp do cliente?`
+                `Enviar agora o e-mail de entrega para ${pedido.clienteEmail}? O cliente verá ${pedido.deliverables.length} registro(s) na página dele.`
               )
             }
             disabled={busy !== null || pedido.deliverables.length === 0}
@@ -372,7 +363,7 @@ export default function PedidoDetailClient({ pedido }: { pedido: PedidoData }) {
           >
             {busy === "entregar"
               ? "Enviando entrega..."
-              : "🕊️ REALIZAR ENTREGA (mensagem + registros)"}
+              : "🕊️ REALIZAR ENTREGA (e-mail + liberar registros)"}
           </button>
         )}
         {pedido.status === "ritual_realizado" &&
@@ -383,7 +374,7 @@ export default function PedidoDetailClient({ pedido }: { pedido: PedidoData }) {
           )}
 
         {(pedido.status === "pago" || pedido.status === "em_preparacao") &&
-          !pedido.intencaoBruta && (
+          !pedido.formRespondidoEm && (
             <button
               onClick={() =>
                 chamar(

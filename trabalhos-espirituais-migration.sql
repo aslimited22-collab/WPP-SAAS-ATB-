@@ -7,12 +7,16 @@
 -- produtos-chat-limpeza-migration.sql.
 -- É idempotente: pode ser executado mais de uma vez.
 --
--- Modelo de entrega: cliente compra → confirmação automática com
--- orientações → operador realiza o ritual pessoalmente em até 48h
--- úteis → cliente recebe o registro (foto/áudio) pelo WhatsApp.
--- O status `ritual_realizado` SÓ é marcado manualmente pelo operador
--- no painel /admin/pedidos — nada no sistema afirma que um ritual
--- aconteceu antes disso.
+-- Modelo de entrega (100% por E-MAIL, sem WhatsApp):
+--   compra → e-mail de confirmação com o LINK ÚNICO do pedido
+--   (/pedido/<access_token>) → cliente preenche nome completo e intenção
+--   nesse link → o OPERADOR realiza o ritual pessoalmente em até 48h
+--   úteis e marca manualmente no painel → operador anexa o registro
+--   (foto/áudio) e envia o e-mail de entrega, que aponta para o MESMO
+--   link, onde o registro passa a aparecer.
+--
+-- O status `ritual_realizado` SÓ é marcado manualmente pelo operador —
+-- nada no sistema afirma que um ritual aconteceu antes disso.
 -- ============================================================
 
 -- ------------------------------------------------------------
@@ -73,17 +77,19 @@ CREATE TABLE IF NOT EXISTS public.service_orders (
   service_id UUID NOT NULL REFERENCES public.spiritual_services(id),
   cliente_nome TEXT CHECK (char_length(cliente_nome) <= 100),
   cliente_email TEXT NOT NULL CHECK (char_length(cliente_email) <= 255),
-  -- Somente dígitos (com código do país) — usado para casar as mensagens
-  -- recebidas no webhook da Z-API com o pedido aberto.
-  cliente_whatsapp TEXT CHECK (cliente_whatsapp ~ '^[0-9]{8,15}$'),
-  -- Nome completo usado no ritual (pode diferir do nome da compra) e
-  -- intenção do trabalho — confirmados pelo OPERADOR no painel.
+  -- Telefone informado na compra. Guardado apenas como referência de
+  -- contato para o operador — NÃO é usado para envio (o canal é e-mail).
+  cliente_telefone TEXT CHECK (char_length(cliente_telefone) <= 20),
+  -- Credencial do link único do cliente: /pedido/<access_token>.
+  -- A mesma URL serve para preencher os dados e, depois, para ver o
+  -- registro do ritual — o cliente guarda um link só.
+  access_token UUID NOT NULL UNIQUE DEFAULT gen_random_uuid(),
+  -- Preenchidos pelo CLIENTE no formulário do link acima e revisados
+  -- pelo operador antes do ritual.
   nome_completo_ritual TEXT CHECK (char_length(nome_completo_ritual) <= 200),
   intencao TEXT CHECK (char_length(intencao) <= 4000),
-  -- Texto BRUTO recebido do cliente pelo WhatsApp (pode conter nome +
-  -- intenção juntos). O operador lê, organiza e preenche os campos acima.
-  intencao_bruta TEXT CHECK (char_length(intencao_bruta) <= 8000),
   intencao_aguardando_revisao BOOLEAN NOT NULL DEFAULT false,
+  form_respondido_em TIMESTAMPTZ,
   status TEXT NOT NULL DEFAULT 'pago' CHECK (status IN (
     'pago', 'em_preparacao', 'ritual_realizado', 'entregue', 'reembolsado'
   )),
@@ -99,8 +105,7 @@ CREATE TABLE IF NOT EXISTS public.service_orders (
   reembolsado_em TIMESTAMPTZ,
   -- Última vez que o lembrete de dados pendentes foi disparado (manual)
   lembrete_enviado_em TIMESTAMPTZ,
-  -- Confirmação automática pós-compra (WhatsApp/e-mail)
-  confirmacao_whatsapp_ok BOOLEAN,
+  -- E-mail de confirmação pós-compra
   confirmacao_email_ok BOOLEAN,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -110,12 +115,13 @@ CREATE INDEX IF NOT EXISTS idx_service_orders_status
   ON public.service_orders(status);
 CREATE INDEX IF NOT EXISTS idx_service_orders_service
   ON public.service_orders(service_id);
-CREATE INDEX IF NOT EXISTS idx_service_orders_whatsapp
-  ON public.service_orders(cliente_whatsapp);
 CREATE INDEX IF NOT EXISTS idx_service_orders_email
   ON public.service_orders(cliente_email);
 CREATE INDEX IF NOT EXISTS idx_service_orders_created
   ON public.service_orders(created_at DESC);
+-- Busca pelo link único do cliente (rota /pedido/[token])
+CREATE INDEX IF NOT EXISTS idx_service_orders_access_token
+  ON public.service_orders(access_token);
 
 -- ------------------------------------------------------------
 -- 3. SERVICE_DELIVERABLES: registros do ritual (foto/áudio/mensagem)
@@ -138,9 +144,9 @@ CREATE INDEX IF NOT EXISTS idx_service_deliverables_order
   ON public.service_deliverables(order_id);
 
 -- ------------------------------------------------------------
--- 4. RLS: acesso EXCLUSIVO via service_role nesta fase.
--- O cliente não acessa pedidos diretamente; landings leem o catálogo
--- pelo servidor (service client) e o painel admin idem.
+-- 4. RLS: acesso EXCLUSIVO via service_role.
+-- O cliente nunca fala com o banco direto: a página /pedido/[token] é
+-- renderizada no servidor, que valida o token e usa a service key.
 -- ------------------------------------------------------------
 
 ALTER TABLE public.spiritual_services ENABLE ROW LEVEL SECURITY;
@@ -176,7 +182,7 @@ REVOKE ALL ON public.service_deliverables FROM anon;
 -- ------------------------------------------------------------
 -- 5. STORAGE: bucket PRIVADO para fotos/áudios dos rituais.
 -- Sem policies em storage.objects → apenas o service_role acessa
--- (uploads e signed URLs são gerados pelo servidor no painel admin).
+-- (uploads e signed URLs são gerados pelo servidor).
 -- ------------------------------------------------------------
 
 INSERT INTO storage.buckets (id, name, public)

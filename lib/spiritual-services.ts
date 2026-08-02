@@ -1,19 +1,17 @@
 // ─── Trabalhos Espirituais: catálogo, pedidos e confirmação pós-compra ───────
-// Modelo de entrega híbrida: compra → confirmação automática (WhatsApp +
-// e-mail) com orientações de preparação → o OPERADOR realiza o ritual em até
-// 48h úteis → entrega manual do registro pelo painel /admin/pedidos.
+// Modelo de entrega híbrida, com E-MAIL como canal único (sem WhatsApp):
+// compra → e-mail de confirmação com o LINK ÚNICO do pedido (/pedido/<token>)
+// → cliente preenche nome completo e intenção nesse link → o OPERADOR realiza
+// o ritual em até 48h úteis → entrega manual pelo painel /admin/pedidos, que
+// envia o e-mail apontando para o MESMO link, onde o registro aparece.
 //
 // Nada aqui afirma que um ritual foi realizado — isso só acontece quando o
 // operador marca manualmente no painel.
 
 import type { createServiceSupabaseClient } from "@/lib/supabase";
 import { deepseekComplete } from "@/lib/deepseek";
-import { sendWhatsApp } from "@/lib/zapi";
-import { sendServicoConfirmacaoEmail } from "@/lib/email";
-import {
-  mensagemConfirmacao,
-  mensagemOperadorNovoPedido,
-} from "@/content/mensagens-servicos";
+import { sendServicoConfirmacaoEmail, sendOperadorEmail } from "@/lib/email";
+import { copyOperadorNovoPedido } from "@/content/mensagens-servicos";
 
 type ServiceClient = ReturnType<typeof createServiceSupabaseClient>;
 
@@ -47,9 +45,28 @@ export const STATUS_TIMESTAMP_COLUMN: Record<ServiceOrderStatus, string> = {
   reembolsado: "reembolsado_em",
 };
 
-// Mantém apenas dígitos — formato canônico de WhatsApp no banco.
+// Mantém apenas dígitos — telefone guardado só como referência de contato
+// para o operador (o canal de comunicação do produto é e-mail).
 export function soDigitos(phone: string | null | undefined): string {
   return (phone ?? "").replace(/\D/g, "");
+}
+
+// URL do link único do cliente — a mesma página serve para preencher os
+// dados e, depois, para ver o registro do ritual.
+export function pedidoUrl(baseUrl: string, accessToken: string): string {
+  return `${baseUrl.replace(/\/$/, "")}/pedido/${accessToken}`;
+}
+
+// Nome do serviço vindo de um join `spiritual_services(nome)`.
+// O PostgREST devolve OBJETO quando infere relação para-um e ARRAY quando
+// infere para-muitos — ler `.nome` direto quebraria silenciosamente num dos
+// casos. Este helper aceita os dois e nunca lança.
+export function servicoNomeDe(rel: unknown): string {
+  const fallback = "Trabalho Espiritual";
+  if (!rel) return fallback;
+  const row = Array.isArray(rel) ? rel[0] : rel;
+  const nome = (row as { nome?: unknown } | null)?.nome;
+  return typeof nome === "string" && nome.trim() ? nome : fallback;
 }
 
 // ─── Catálogo ────────────────────────────────────────────────────────────────
@@ -156,15 +173,16 @@ REGRAS OBRIGATÓRIAS:
   }
 }
 
-// ─── Notificação do operador via WhatsApp ────────────────────────────────────
-// OPERATOR_WHATSAPP: número (só dígitos, com país) que recebe os avisos
-// operacionais. Sem a env, a notificação é silenciosamente pulada.
-export async function notifyOperator(text: string): Promise<boolean> {
-  const operator = soDigitos(process.env.OPERATOR_WHATSAPP);
-  if (!operator) return false;
+// ─── Notificação do operador por e-mail ──────────────────────────────────────
+// Vai para ADMIN_NOTIFY_EMAIL. Sem a env, é silenciosamente pulada.
+export async function notifyOperator(opts: {
+  assunto: string;
+  linhas: string[];
+  adminUrl?: string;
+}): Promise<boolean> {
   try {
-    const r = await sendWhatsApp(operator, text, { humanTyping: false });
-    return r.success;
+    const r = await sendOperadorEmail(opts);
+    return r.ok;
   } catch {
     return false;
   }
@@ -185,7 +203,7 @@ export async function processarCompraServico(
     baseUrl: string;
   }
 ): Promise<{ ok: boolean; orderId?: string; duplicate?: boolean }> {
-  const whatsapp = soDigitos(opts.phone);
+  const telefone = soDigitos(opts.phone);
   const nowIso = new Date().toISOString();
 
   // upsert com ignoreDuplicates: pedido já existente (reentrega do webhook)
@@ -197,7 +215,7 @@ export async function processarCompraServico(
         service_id: opts.service.id,
         cliente_nome: opts.nome,
         cliente_email: opts.email,
-        cliente_whatsapp: whatsapp || null,
+        cliente_telefone: telefone || null,
         status: "pago",
         kiwify_order_id: opts.kiwifyOrderId,
         amount_cents: opts.amountCents,
@@ -206,7 +224,7 @@ export async function processarCompraServico(
       },
       { onConflict: "kiwify_order_id", ignoreDuplicates: true }
     )
-    .select("id");
+    .select("id, access_token");
 
   if (error) {
     console.error("[Servicos] Falha ao criar service_order:", error.message);
@@ -217,57 +235,48 @@ export async function processarCompraServico(
     return { ok: true, duplicate: true };
   }
   const orderId = inserted[0].id as string;
+  const accessToken = inserted[0].access_token as string;
+  const linkPedido = pedidoUrl(opts.baseUrl, accessToken);
 
-  // ── Mensagem de confirmação (WhatsApp) com acolhimento da IA ──────────────
+  // ── E-mail de confirmação com o link único do pedido ──────────────────────
+  // O acolhimento personalizado (DeepSeek) é opcional: se falhar ou demorar,
+  // o template usa o parágrafo estático.
   const acolhimento = await gerarAcolhimento({
     nome: opts.nome,
     servicoNome: opts.service.nome,
   });
-  const texto = mensagemConfirmacao({
-    nome: opts.nome,
-    servicoNome: opts.service.nome,
-    servicoSlug: opts.service.slug,
-    acolhimento,
-  });
 
-  let waOk = false;
-  if (whatsapp) {
-    try {
-      const r = await sendWhatsApp(whatsapp, texto, { humanTyping: false });
-      waOk = r.success;
-    } catch {
-      waOk = false;
-    }
-  }
-
-  // ── E-mail equivalente (fail-soft) ────────────────────────────────────────
   const emailResult = await sendServicoConfirmacaoEmail({
     email: opts.email,
     nome: opts.nome,
     servicoNome: opts.service.nome,
-    temWhatsapp: Boolean(whatsapp),
+    servicoSlug: opts.service.slug,
+    pedidoUrl: linkPedido,
+    acolhimento,
   });
 
   await supabase
     .from("service_orders")
     .update({
-      confirmacao_whatsapp_ok: whatsapp ? waOk : null,
       confirmacao_email_ok: emailResult.ok,
       updated_at: new Date().toISOString(),
     })
     .eq("id", orderId);
 
   // ── Aviso ao operador ─────────────────────────────────────────────────────
-  await notifyOperator(
-    mensagemOperadorNovoPedido({
-      servicoNome: opts.service.nome,
-      clienteNome: opts.nome,
-      clienteEmail: opts.email,
-      clienteWhatsapp: whatsapp,
-      kiwifyOrderId: opts.kiwifyOrderId,
-      adminUrl: `${opts.baseUrl}/admin/pedidos/${orderId}`,
-    })
-  );
+  const aviso = copyOperadorNovoPedido({
+    servicoNome: opts.service.nome,
+    clienteNome: opts.nome,
+    clienteEmail: opts.email,
+    clienteTelefone: telefone,
+    kiwifyOrderId: opts.kiwifyOrderId,
+    adminUrl: `${opts.baseUrl}/admin/pedidos/${orderId}`,
+  });
+  await notifyOperator({
+    assunto: aviso.assunto,
+    linhas: aviso.linhas,
+    adminUrl: aviso.adminUrl,
+  });
 
   return { ok: true, orderId };
 }

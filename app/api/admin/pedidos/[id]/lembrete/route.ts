@@ -1,20 +1,26 @@
 // ─── POST /api/admin/pedidos/[id]/lembrete ───────────────────────────────────
 // Disparo MANUAL (pelo painel) do lembrete de dados pendentes — cliente que
-// não respondeu com nome completo/intenção em ~24h.
+// não preencheu nome completo/intenção no link do pedido.
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminUser } from "@/lib/admin";
 import { createServiceSupabaseClient } from "@/lib/supabase";
-import { sendWhatsApp } from "@/lib/zapi";
-import { mensagemLembreteDados } from "@/content/mensagens-servicos";
+import { sendServicoLembreteEmail } from "@/lib/email";
+import { pedidoUrl, servicoNomeDe } from "@/lib/spiritual-services";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function appBaseUrl(request: NextRequest): string {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin
+  ).replace(/\/$/, "");
+}
+
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const admin = await getAdminUser();
@@ -30,7 +36,9 @@ export async function POST(
   const supabase = createServiceSupabaseClient();
   const { data: order } = await supabase
     .from("service_orders")
-    .select("id, status, cliente_nome, cliente_whatsapp, spiritual_services(nome)")
+    .select(
+      "id, status, cliente_nome, cliente_email, access_token, spiritual_services(nome)"
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -43,25 +51,17 @@ export async function POST(
       { status: 422 }
     );
   }
-  if (!order.cliente_whatsapp) {
-    return NextResponse.json(
-      { error: "Pedido sem WhatsApp cadastrado." },
-      { status: 422 }
-    );
-  }
 
-  const servicoNome =
-    (order.spiritual_services as { nome?: string } | null)?.nome ??
-    "Trabalho Espiritual";
+  const enviado = await sendServicoLembreteEmail({
+    email: order.cliente_email,
+    nome: order.cliente_nome,
+    servicoNome: servicoNomeDe(order.spiritual_services),
+    pedidoUrl: pedidoUrl(appBaseUrl(request), order.access_token as string),
+  });
 
-  const r = await sendWhatsApp(
-    order.cliente_whatsapp,
-    mensagemLembreteDados({ nome: order.cliente_nome, servicoNome }),
-    { humanTyping: false }
-  );
-  if (!r.success) {
+  if (!enviado.ok) {
     return NextResponse.json(
-      { error: `Falha ao enviar lembrete: ${r.error ?? "Z-API"}` },
+      { error: `Falha ao enviar o lembrete (${enviado.reason ?? "erro"}).` },
       { status: 502 }
     );
   }

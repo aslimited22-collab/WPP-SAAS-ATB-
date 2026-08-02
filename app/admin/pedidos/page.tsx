@@ -27,7 +27,8 @@ interface OrderRow {
   status: string;
   cliente_nome: string | null;
   cliente_email: string;
-  cliente_whatsapp: string | null;
+  cliente_telefone: string | null;
+  form_respondido_em: string | null;
   intencao: string | null;
   intencao_aguardando_revisao: boolean;
   created_at: string;
@@ -50,7 +51,7 @@ export default async function AdminPedidosPage({
   let query = supabase
     .from("service_orders")
     .select(
-      "id, status, cliente_nome, cliente_email, cliente_whatsapp, intencao, intencao_aguardando_revisao, created_at, spiritual_services(nome, slug)"
+      "id, status, cliente_nome, cliente_email, cliente_telefone, intencao, intencao_aguardando_revisao, form_respondido_em, created_at, spiritual_services(nome, slug)"
     )
     .order("created_at", { ascending: false })
     .limit(200);
@@ -149,12 +150,12 @@ export default async function AdminPedidosPage({
                 <span className="text-[#888] text-sm">{o.cliente_email}</span>
                 {o.intencao_aguardando_revisao && (
                   <span className="text-xs bg-[#c9a84c]/20 text-[#c9a84c] border border-[#c9a84c]/40 rounded-full px-3 py-1">
-                    ✉️ Resposta aguardando revisão
+                    ✉️ Dados recebidos — revisar
                   </span>
                 )}
-                {!o.intencao && !o.intencao_aguardando_revisao && (
+                {!o.form_respondido_em && (
                   <span className="text-xs text-[#666] border border-[#2a2a2a] rounded-full px-3 py-1">
-                    Sem intenção
+                    Aguardando dados do cliente
                   </span>
                 )}
                 <span className="text-[#555] text-xs ml-auto whitespace-nowrap">

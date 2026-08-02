@@ -116,68 +116,6 @@ export interface SendWhatsAppOptions {
   humanTyping?: boolean;
 }
 
-// ─── Envio de mídia (foto/áudio) — usado na entrega dos Trabalhos ────────────
-// A Z-API baixa a mídia a partir de uma URL (usamos signed URLs temporárias
-// do Supabase Storage). Sem simulação de digitação: é entrega operacional.
-async function sendZapiMedia(
-  phone: string,
-  endpoint: "send-image" | "send-audio",
-  body: Record<string, unknown>
-): Promise<SendWhatsAppResult> {
-  const { instanceId, token, securityToken } = validateZapiCredentials();
-
-  const sanitizedPhone = sanitizePhoneNumber(phone);
-  if (!sanitizedPhone || sanitizedPhone.length < 8 || sanitizedPhone.length > 15) {
-    return { success: false, error: "Número de telefone inválido" };
-  }
-
-  const url = `https://api.z-api.io/instances/${instanceId}/token/${token}/${endpoint}`;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30_000);
-
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: zapiHeaders(securityToken),
-      body: JSON.stringify({ phone: sanitizedPhone, ...body }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      console.error(`[Z-API] ${endpoint} não-ok:`, response.status);
-      return { success: false, error: `Z-API retornou status ${response.status}` };
-    }
-    const data = (await response.json()) as { zaapId?: string; messageId?: string };
-    return { success: true, messageId: data.zaapId ?? data.messageId };
-  } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
-      return { success: false, error: "Timeout ao conectar com Z-API" };
-    }
-    console.error(`[Z-API] Erro ao enviar ${endpoint}`);
-    return { success: false, error: "Erro ao enviar mídia via Z-API" };
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-export async function sendWhatsAppImage(
-  phone: string,
-  imageUrl: string,
-  caption?: string
-): Promise<SendWhatsAppResult> {
-  return sendZapiMedia(phone, "send-image", {
-    image: imageUrl,
-    ...(caption ? { caption: caption.slice(0, 1000) } : {}),
-  });
-}
-
-export async function sendWhatsAppAudio(
-  phone: string,
-  audioUrl: string
-): Promise<SendWhatsAppResult> {
-  return sendZapiMedia(phone, "send-audio", { audio: audioUrl });
-}
-
 export async function sendWhatsApp(
   phone: string,
   message: string,

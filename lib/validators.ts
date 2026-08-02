@@ -171,6 +171,29 @@ export const limpezaOrderSchema = z.object({
 
 export type LimpezaOrderInput = z.infer<typeof limpezaOrderSchema>;
 
+// ─── Formulário do pedido de Trabalho Espiritual (/pedido/[token]) ───────────
+// O cliente informa o nome completo usado no ritual e a intenção do trabalho.
+// Texto livre (a intenção é pessoal) — apenas limpamos caracteres de controle
+// e limitamos o tamanho. O operador revisa antes de realizar o ritual.
+export const servicoPedidoFormSchema = z.object({
+  nome_completo: z
+    .string()
+    .min(3, "Escreva seu nome completo")
+    .max(200, "Nome muito longo")
+    .transform(stripControlChars)
+    .transform((v) => v.trim())
+    .refine((v) => v.length >= 3, "Escreva seu nome completo"),
+  intencao: z
+    .string()
+    .min(10, "Conte um pouco mais sobre a sua intenção")
+    .max(4000, "Texto muito longo")
+    .transform(stripControlChars)
+    .transform((v) => v.trim())
+    .refine((v) => v.length >= 10, "Conte um pouco mais sobre a sua intenção"),
+});
+
+export type ServicoPedidoFormInput = z.infer<typeof servicoPedidoFormSchema>;
+
 // ─── Magic link login ─────────────────────────────────────────────────────────
 export const loginSchema = z.object({
   email: z

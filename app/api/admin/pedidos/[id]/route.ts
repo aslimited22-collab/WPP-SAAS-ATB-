@@ -1,6 +1,6 @@
 // ─── PATCH /api/admin/pedidos/[id] ───────────────────────────────────────────
-// Edição do pedido pelo OPERADOR: nome_completo_ritual, intencao (confirmação
-// do texto bruto do WhatsApp) e transições de status manuais.
+// Edição do pedido pelo OPERADOR: nome_completo_ritual, intencao (revisão do
+// que o cliente escreveu no link do pedido) e transições de status manuais.
 //
 // Transições permitidas aqui (sempre para frente):
 //   pago → em_preparacao → ritual_realizado

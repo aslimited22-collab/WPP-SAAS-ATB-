@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getAdminUser } from "@/lib/admin";
 import { createServiceSupabaseClient } from "@/lib/supabase";
+import { servicoNomeDe } from "@/lib/spiritual-services";
 import PedidoDetailClient, { type PedidoData } from "./PedidoDetailClient";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +29,7 @@ export default async function AdminPedidoDetailPage({
   const { data: order } = await supabase
     .from("service_orders")
     .select(
-      "id, status, cliente_nome, cliente_email, cliente_whatsapp, nome_completo_ritual, intencao, intencao_bruta, intencao_aguardando_revisao, kiwify_order_id, amount_cents, pago_em, em_preparacao_em, ritual_realizado_em, entregue_em, reembolsado_em, lembrete_enviado_em, confirmacao_whatsapp_ok, confirmacao_email_ok, created_at, spiritual_services(nome, slug)"
+      "id, status, cliente_nome, cliente_email, cliente_telefone, access_token, nome_completo_ritual, intencao, intencao_aguardando_revisao, form_respondido_em, kiwify_order_id, amount_cents, pago_em, em_preparacao_em, ritual_realizado_em, entregue_em, reembolsado_em, lembrete_enviado_em, confirmacao_email_ok, created_at, spiritual_services(nome, slug)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -52,22 +53,20 @@ export default async function AdminPedidoDetailPage({
     }
   }
 
-  const service = order.spiritual_services as {
-    nome?: string;
-    slug?: string;
-  } | null;
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
 
   const pedido: PedidoData = {
     id: order.id,
     status: order.status,
-    servicoNome: service?.nome ?? "Trabalho Espiritual",
+    servicoNome: servicoNomeDe(order.spiritual_services),
     clienteNome: order.cliente_nome,
     clienteEmail: order.cliente_email,
-    clienteWhatsapp: order.cliente_whatsapp,
+    clienteTelefone: order.cliente_telefone,
+    pedidoUrl: `${baseUrl}/pedido/${order.access_token}`,
     nomeCompletoRitual: order.nome_completo_ritual,
     intencao: order.intencao,
-    intencaoBruta: order.intencao_bruta,
     intencaoAguardandoRevisao: order.intencao_aguardando_revisao,
+    formRespondidoEm: order.form_respondido_em,
     kiwifyOrderId: order.kiwify_order_id,
     amountCents: order.amount_cents,
     pagoEm: order.pago_em,
@@ -76,7 +75,6 @@ export default async function AdminPedidoDetailPage({
     entregueEm: order.entregue_em,
     reembolsadoEm: order.reembolsado_em,
     lembreteEnviadoEm: order.lembrete_enviado_em,
-    confirmacaoWhatsappOk: order.confirmacao_whatsapp_ok,
     confirmacaoEmailOk: order.confirmacao_email_ok,
     createdAt: order.created_at,
     deliverables: (deliverables ?? []).map((d) => ({
