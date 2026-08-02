@@ -171,6 +171,51 @@ export const limpezaOrderSchema = z.object({
 
 export type LimpezaOrderInput = z.infer<typeof limpezaOrderSchema>;
 
+// ─── Personalização da Limpeza (compra direta, sem passar pelo funil) ────────
+// Quem compra direto na Kiwify não informa tema/situação/signo — a leitura
+// sai genérica. Este schema valida os dados que o cliente completa depois,
+// pela própria página de entrega. A situação é OBRIGATÓRIA aqui: é ela que
+// torna a leitura pessoal (no funil ela é opcional).
+export const limpezaPersonalizarSchema = z.object({
+  orderId: z.string().min(10).max(64),
+  tema: z.enum(LIMPEZA_TEMAS, {
+    errorMap: () => ({ message: "Escolha o que precisa ser limpo" }),
+  }),
+  signo: z.enum(LIMPEZA_SIGNOS).optional(),
+  pergunta: z
+    .string()
+    .min(10, "Conte um pouco mais sobre a sua situação")
+    .max(600, "Texto muito longo")
+    .transform(stripControlChars)
+    .transform((v) => v.trim())
+    .refine((v) => v.length >= 10, "Conte um pouco mais sobre a sua situação"),
+});
+
+export type LimpezaPersonalizarInput = z.infer<typeof limpezaPersonalizarSchema>;
+
+// ─── Formulário do pedido de Trabalho Espiritual (/pedido/[token]) ───────────
+// O cliente informa o nome completo usado no ritual e a intenção do trabalho.
+// Texto livre (a intenção é pessoal) — apenas limpamos caracteres de controle
+// e limitamos o tamanho. O operador revisa antes de realizar o ritual.
+export const servicoPedidoFormSchema = z.object({
+  nome_completo: z
+    .string()
+    .min(3, "Escreva seu nome completo")
+    .max(200, "Nome muito longo")
+    .transform(stripControlChars)
+    .transform((v) => v.trim())
+    .refine((v) => v.length >= 3, "Escreva seu nome completo"),
+  intencao: z
+    .string()
+    .min(10, "Conte um pouco mais sobre a sua intenção")
+    .max(4000, "Texto muito longo")
+    .transform(stripControlChars)
+    .transform((v) => v.trim())
+    .refine((v) => v.length >= 10, "Conte um pouco mais sobre a sua intenção"),
+});
+
+export type ServicoPedidoFormInput = z.infer<typeof servicoPedidoFormSchema>;
+
 // ─── Magic link login ─────────────────────────────────────────────────────────
 export const loginSchema = z.object({
   email: z

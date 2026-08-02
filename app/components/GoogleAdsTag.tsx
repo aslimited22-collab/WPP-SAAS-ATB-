@@ -21,7 +21,16 @@ export default function GoogleAdsTag() {
         {`window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
-gtag('config', '${GOOGLE_ADS_ID}');`}
+gtag('config', '${GOOGLE_ADS_ID}', {
+  // A URL de páginas privadas carrega a CREDENCIAL do pedido
+  // (/pedido/<access_token>, /entrega/<orderId>). O page_view padrão manda
+  // page_location para o Google — o que vazaria esse token para terceiro.
+  // Em rotas privadas não enviamos page_view nem a URL.
+  send_page_view: !/^\\/(pedido|entrega)(\\/|$)/.test(window.location.pathname),
+  page_location: /^\\/(pedido|entrega)(\\/|$)/.test(window.location.pathname)
+    ? window.location.origin + '/[privado]'
+    : window.location.href
+});`}
       </Script>
     </>
   );

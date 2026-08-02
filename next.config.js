@@ -43,7 +43,13 @@ const cspDirectives = [
   ].join(" "),
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  ["img-src 'self' data: blob:", ...GOOGLE_ADS_PIXEL].join(" "),
+  // img-src precisa do Storage do Supabase: a imagem espiritual entregue nos
+  // Trabalhos vem de uma signed URL em https://<ref>.supabase.co/storage/...
+  // Sem isso o navegador BLOQUEIA a imagem e a cliente paga e não vê a arte.
+  [
+    "img-src 'self' data: blob: https://*.supabase.co",
+    ...GOOGLE_ADS_PIXEL,
+  ].join(" "),
   // connect-src: Supabase (Auth + DB) + ping de conversão do Google Ads
   // — Claude e Z-API são server-side
   [

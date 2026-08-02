@@ -11,6 +11,12 @@ const PUBLIC_ROUTES = [
   // Landing das campanhas de Google Ads: tráfego pago chega deslogado.
   // Sem estar aqui, todo clique no anúncio seria redirecionado para /login.
   "/google-ads",
+  // Landings dos Trabalhos Espirituais: páginas públicas de venda.
+  "/servicos",
+  // Link único do cliente (o access_token do pedido é a credencial):
+  // formulário de dados do ritual e, depois, o registro entregue.
+  "/pedido",
+  "/api/pedido",
   "/api/webhooks/kiwify",
   "/api/webhooks/stripe",
   "/api/auth",

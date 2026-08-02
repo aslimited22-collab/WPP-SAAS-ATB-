@@ -8,6 +8,12 @@
 
 import type { AppLocale } from "@/lib/locale";
 import type { createServiceSupabaseClient } from "@/lib/supabase";
+import {
+  copyConfirmacao,
+  copyLembrete,
+  copyEntrega,
+  RODAPE_LEGAL,
+} from "@/content/mensagens-servicos";
 
 type ServiceClient = ReturnType<typeof createServiceSupabaseClient>;
 
@@ -266,6 +272,125 @@ export async function sendLimpezaEmail(opts: {
   `);
 
   return sendEmail({ to: opts.email, subject: copy.subject, html });
+}
+
+// ─── E-mails dos Trabalhos Espirituais (canal único: e-mail) ─────────────────
+// Todo texto vem de content/mensagens-servicos.ts. Compliance: a confirmação
+// e o lembrete NUNCA afirmam ritual realizado; só a entrega fala disso, e ela
+// é disparada manualmente pelo operador depois de realizar o ritual.
+
+// 1. Confirmação pós-compra — leva ao link único do pedido.
+export async function sendServicoConfirmacaoEmail(opts: {
+  email: string;
+  nome?: string | null;
+  servicoNome: string;
+  servicoSlug: string;
+  pedidoUrl: string;
+  acolhimento?: string | null;
+}): Promise<EmailResult> {
+  const c = copyConfirmacao({
+    nome: opts.nome,
+    servicoNome: opts.servicoNome,
+    servicoSlug: opts.servicoSlug,
+    acolhimento: opts.acolhimento,
+  });
+
+  const passos = c.comoFunciona
+    .map(
+      (p, i) =>
+        `<tr><td valign="top" style="padding:0 12px 12px 0;color:#c9a84c;font-size:18px;font-weight:800;">${i + 1}.</td><td style="padding:0 0 12px;font-size:16px;line-height:1.6;">${escapeHtml(p)}</td></tr>`
+    )
+    .join("");
+
+  const html = mysticLayout(`
+    <div style="font-size:56px;margin-bottom:14px;">🕊️</div>
+    <h1 style="color:#c9a84c;font-size:28px;margin:0 0 14px;">${escapeHtml(c.titulo)}</h1>
+    <p style="font-size:17px;line-height:1.65;margin:0 0 16px;">${escapeHtml(c.acolhimento)}</p>
+    <p style="font-size:17px;line-height:1.65;margin:0 0 22px;">${escapeHtml(c.linhaProduto)}</p>
+    <div style="text-align:left;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.3);border-radius:14px;padding:20px;margin:0 0 22px;">
+      <p style="color:#c9a84c;font-size:16px;font-weight:800;margin:0 0 12px;">✦ Como vai funcionar</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">${passos}</table>
+    </div>
+    ${goldButton(opts.pedidoUrl, c.ctaLabel)}
+    <p style="color:#c2b9a4;font-size:14px;line-height:1.6;margin:18px 0 0;">${escapeHtml(c.ctaNota)}</p>
+    <p style="font-size:16px;line-height:1.65;margin:22px 0 0;"><strong style="color:#c9a84c;">✦ Preparação:</strong> ${escapeHtml(c.preparacao)}</p>
+    <p style="font-size:16px;line-height:1.65;margin:18px 0 0;">${escapeHtml(c.assinatura)}</p>
+    <p style="color:#9a8f78;font-size:13px;line-height:1.6;margin:24px 0 0;">${escapeHtml(RODAPE_LEGAL)}</p>
+  `);
+
+  return sendEmail({ to: opts.email, subject: c.assunto, html });
+}
+
+// 2. Lembrete de dados pendentes — disparo manual no painel.
+export async function sendServicoLembreteEmail(opts: {
+  email: string;
+  nome?: string | null;
+  servicoNome: string;
+  pedidoUrl: string;
+}): Promise<EmailResult> {
+  const c = copyLembrete({ nome: opts.nome, servicoNome: opts.servicoNome });
+  const html = mysticLayout(`
+    <div style="font-size:56px;margin-bottom:14px;">💛</div>
+    <h1 style="color:#c9a84c;font-size:28px;margin:0 0 14px;">${escapeHtml(c.titulo)}</h1>
+    <p style="font-size:17px;line-height:1.65;margin:0 0 24px;">${escapeHtml(c.corpo)}</p>
+    ${goldButton(opts.pedidoUrl, c.ctaLabel)}
+    <p style="color:#c2b9a4;font-size:15px;line-height:1.6;margin:20px 0 0;">${escapeHtml(c.nota)}</p>
+    <p style="color:#9a8f78;font-size:13px;line-height:1.6;margin:24px 0 0;">${escapeHtml(RODAPE_LEGAL)}</p>
+  `);
+  return sendEmail({ to: opts.email, subject: c.assunto, html });
+}
+
+// 3. Entrega — só depois de o operador marcar o ritual como realizado.
+export async function sendServicoEntregaEmail(opts: {
+  email: string;
+  nome?: string | null;
+  servicoNome: string;
+  pedidoUrl: string;
+  /** Aviso legal específico do produto (ex.: o jurídico da Devoção a Xangô). */
+  disclaimerExtra?: string | null;
+  /** Se a imagem não foi gerada, o e-mail não promete que ela está lá. */
+  temImagem?: boolean;
+}): Promise<EmailResult> {
+  const c = copyEntrega({
+    nome: opts.nome,
+    servicoNome: opts.servicoNome,
+    temImagem: opts.temImagem !== false,
+  });
+  const html = mysticLayout(`
+    <div style="font-size:56px;margin-bottom:14px;">🕊️</div>
+    <h1 style="color:#c9a84c;font-size:28px;margin:0 0 14px;">${escapeHtml(c.titulo)}</h1>
+    <p style="font-size:17px;line-height:1.65;margin:0 0 24px;">${escapeHtml(c.corpo)}</p>
+    ${goldButton(opts.pedidoUrl, c.ctaLabel)}
+    <p style="font-size:16px;line-height:1.65;margin:22px 0 0;"><strong style="color:#c9a84c;">✦ Orientações:</strong> ${escapeHtml(c.orientacoes)}</p>
+    <p style="font-size:16px;line-height:1.65;margin:18px 0 0;">${escapeHtml(c.assinatura)}</p>
+    ${opts.disclaimerExtra ? `<p style="color:#c2b9a4;font-size:14px;line-height:1.6;margin:22px 0 0;font-weight:600;">${escapeHtml(opts.disclaimerExtra)}</p>` : ""}
+    <p style="color:#9a8f78;font-size:13px;line-height:1.6;margin:24px 0 0;">${escapeHtml(RODAPE_LEGAL)}</p>
+  `);
+  return sendEmail({ to: opts.email, subject: c.assunto, html });
+}
+
+// 4. Avisos operacionais ao operador (novo pedido / reembolso).
+export async function sendOperadorEmail(opts: {
+  assunto: string;
+  linhas: string[];
+  adminUrl?: string;
+}): Promise<EmailResult> {
+  const to = process.env.ADMIN_NOTIFY_EMAIL;
+  if (!to) return { ok: false, reason: "no_admin_email" };
+
+  const corpo = opts.linhas
+    .map((l) => `<p style="margin:0 0 6px;font-size:15px;">${escapeHtml(l)}</p>`)
+    .join("");
+
+  return sendEmail({
+    to,
+    subject: opts.assunto,
+    html: `<div style="font-family:system-ui,sans-serif;">${corpo}${
+      opts.adminUrl
+        ? `<p style="margin:16px 0 0;"><a href="${escapeHtml(opts.adminUrl)}">Abrir no painel</a></p>`
+        : ""
+    }</div>`,
+  });
 }
 
 // ─── Notificação de venda para o admin ───────────────────────────────────────
