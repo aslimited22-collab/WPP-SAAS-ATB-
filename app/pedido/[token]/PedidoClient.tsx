@@ -6,7 +6,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { DISCLAIMER_GERAL, DIREITO_ARREPENDIMENTO } from "@/content/servicos";
+import {
+  DISCLAIMER_GERAL,
+  DIREITO_ARREPENDIMENTO,
+  SERVICOS_CONTENT,
+  type ServiceSlug,
+} from "@/content/servicos";
 
 export interface LeituraJson {
   title: string;
@@ -22,6 +27,7 @@ export interface LeituraJson {
 export interface PedidoPublico {
   token: string;
   status: string;
+  servicoSlug: string | null;
   servicoNome: string;
   clienteNome: string | null;
   nomeCompletoRitual: string | null;
@@ -69,6 +75,11 @@ export default function PedidoClient({ pedido }: { pedido: PedidoPublico }) {
 
   const nome = primeiroNome(pedido.nomeCompletoRitual ?? pedido.clienteNome);
   const l = pedido.leitura;
+  // Aviso legal específico do produto (ex.: o jurídico da Devoção a Xangô).
+  // Determinístico: não depende do texto que a IA gerou.
+  const disclaimerExtra = pedido.servicoSlug
+    ? SERVICOS_CONTENT["pt-BR"][pedido.servicoSlug as ServiceSlug]?.disclaimerExtra
+    : undefined;
   const mostrarFormulario =
     pedido.status !== "entregue" && pedido.status !== "reembolsado";
 
@@ -254,6 +265,11 @@ export default function PedidoClient({ pedido }: { pedido: PedidoPublico }) {
 
         {/* ── Rodapé legal ─────────────────────────────────────────────── */}
         <footer className="border-t border-[#2a2a2a] mt-10 pt-8 pb-4 text-center space-y-3">
+          {disclaimerExtra && (
+            <p className="text-[#c2b9a4] text-base leading-relaxed font-medium">
+              {disclaimerExtra}
+            </p>
+          )}
           <p className="text-[#8a8272] text-sm leading-relaxed">
             {DISCLAIMER_GERAL}
           </p>

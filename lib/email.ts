@@ -346,8 +346,16 @@ export async function sendServicoEntregaEmail(opts: {
   nome?: string | null;
   servicoNome: string;
   pedidoUrl: string;
+  /** Aviso legal específico do produto (ex.: o jurídico da Devoção a Xangô). */
+  disclaimerExtra?: string | null;
+  /** Se a imagem não foi gerada, o e-mail não promete que ela está lá. */
+  temImagem?: boolean;
 }): Promise<EmailResult> {
-  const c = copyEntrega({ nome: opts.nome, servicoNome: opts.servicoNome });
+  const c = copyEntrega({
+    nome: opts.nome,
+    servicoNome: opts.servicoNome,
+    temImagem: opts.temImagem !== false,
+  });
   const html = mysticLayout(`
     <div style="font-size:56px;margin-bottom:14px;">🕊️</div>
     <h1 style="color:#c9a84c;font-size:28px;margin:0 0 14px;">${escapeHtml(c.titulo)}</h1>
@@ -355,6 +363,7 @@ export async function sendServicoEntregaEmail(opts: {
     ${goldButton(opts.pedidoUrl, c.ctaLabel)}
     <p style="font-size:16px;line-height:1.65;margin:22px 0 0;"><strong style="color:#c9a84c;">✦ Orientações:</strong> ${escapeHtml(c.orientacoes)}</p>
     <p style="font-size:16px;line-height:1.65;margin:18px 0 0;">${escapeHtml(c.assinatura)}</p>
+    ${opts.disclaimerExtra ? `<p style="color:#c2b9a4;font-size:14px;line-height:1.6;margin:22px 0 0;font-weight:600;">${escapeHtml(opts.disclaimerExtra)}</p>` : ""}
     <p style="color:#9a8f78;font-size:13px;line-height:1.6;margin:24px 0 0;">${escapeHtml(RODAPE_LEGAL)}</p>
   `);
   return sendEmail({ to: opts.email, subject: c.assunto, html });

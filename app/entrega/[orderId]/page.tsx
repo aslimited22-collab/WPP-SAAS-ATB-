@@ -2,12 +2,20 @@
 // Pública: o UUID do pedido é a credencial de acesso (link enviado por
 // e-mail/WhatsApp). Renderiza a leitura no IDIOMA do comprador.
 
+import type { Metadata } from "next";
 import { createServiceSupabaseClient } from "@/lib/supabase";
 import { normalizeLocale, type AppLocale } from "@/lib/locale";
 import type { FullReadingJson } from "@/lib/limpeza";
 import PersonalizarForm from "./PersonalizarForm";
 
 export const dynamic = "force-dynamic";
+
+// Página privada: o UUID do pedido é a credencial de acesso. Não pode ser
+// indexada (o layout raiz define "index, follow" e isso vazaria a URL).
+export const metadata: Metadata = {
+  title: "Sua Limpeza Espiritual | ATB",
+  robots: { index: false, follow: false },
+};
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

@@ -142,6 +142,12 @@ CREATE TABLE IF NOT EXISTS public.service_deliverables (
 CREATE INDEX IF NOT EXISTS idx_service_deliverables_order
   ON public.service_deliverables(order_id);
 
+-- Um entregável de cada tipo por pedido. Duas submissões simultâneas do
+-- formulário colidem aqui (23505) em vez de gerar texto/imagem duas vezes —
+-- e sem isso um duplicado quebraria o .maybeSingle() usado na leitura.
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_service_deliverable_order_tipo
+  ON public.service_deliverables(order_id, tipo);
+
 -- ------------------------------------------------------------
 -- 4. RLS: acesso EXCLUSIVO via service_role.
 -- O cliente nunca fala com o banco direto: a página /pedido/[token] é

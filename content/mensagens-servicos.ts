@@ -105,12 +105,18 @@ export function copyLembrete(opts: {
 export function copyEntrega(opts: {
   nome: string | null | undefined;
   servicoNome: string;
+  /** false quando a imagem não pôde ser gerada — o e-mail não a promete. */
+  temImagem?: boolean;
 }) {
   const nome = primeiroNome(opts.nome);
+  const oQue =
+    opts.temImagem === false
+      ? "A sua leitura está guardada"
+      : "A sua leitura e a sua imagem espiritual estão guardadas";
   return {
     assunto: `🕊️ Seu trabalho "${opts.servicoNome}" está pronto`,
     titulo: "Seu trabalho está pronto",
-    corpo: `${nome}, é a ATB. Preparei o seu trabalho "${opts.servicoNome}" com muito respeito, com o seu nome e a sua intenção. A sua leitura e a sua imagem espiritual estão guardadas na sua página — é só tocar no botão abaixo.`,
+    corpo: `${nome}, é a ATB. Preparei o seu trabalho "${opts.servicoNome}" com muito respeito, com o seu nome e a sua intenção. ${oQue} na sua página — é só tocar no botão abaixo.`,
     ctaLabel: "✨ Ver o meu trabalho",
     orientacoes:
       "Nos próximos dias, mantenha o coração tranquilo, beba bastante água e, quando puder, acenda uma vela branca em um lugar seguro, agradecendo com as suas palavras.",

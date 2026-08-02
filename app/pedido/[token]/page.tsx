@@ -64,9 +64,16 @@ export default async function PedidoPage({
     }
   }
 
+  const rel = order.spiritual_services as
+    | { slug?: string }
+    | Array<{ slug?: string }>
+    | null;
+  const relRow = Array.isArray(rel) ? rel[0] : rel;
+
   const pedido: PedidoPublico = {
     token,
     status: order.status,
+    servicoSlug: (relRow?.slug as string | undefined) ?? null,
     servicoNome: servicoNomeDe(order.spiritual_services),
     clienteNome: order.cliente_nome,
     nomeCompletoRitual: order.nome_completo_ritual,

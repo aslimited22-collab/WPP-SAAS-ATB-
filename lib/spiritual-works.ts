@@ -82,6 +82,19 @@ const WORK_SPECS: Record<ServiceSlug, WorkSpec> = {
 const IMAGE_STYLE =
   "Warm, inviting spiritual atmosphere. Rich dark background (deep charcoal and midnight purple) with golden candlelight glow. Elegant, comforting, mystical but not scary. Soft light, high detail, cinematic. Symbolic devotional artwork — NOT a photograph. No people, no faces, no text, no words, no letters, no numbers.";
 
+// Disclaimer FIXO por trabalho, aplicado sobre a saída da IA. O texto legal
+// nunca é deixado a cargo do modelo. O do Xangô carrega o aviso jurídico
+// adicional obrigatório.
+const DISCLAIMER_BASE =
+  "Este é um conteúdo espiritual e reflexivo. Serviço de natureza espiritual e religiosa: não substitui acompanhamento médico, psicológico, jurídico ou financeiro.";
+
+export const DISCLAIMER_FIXO: Record<ServiceSlug, string> = {
+  "corte-de-lacos": DISCLAIMER_BASE,
+  "ritual-de-prosperidade": DISCLAIMER_BASE,
+  "devocao-a-xango": `${DISCLAIMER_BASE} Este é um serviço devocional e espiritual. Não é serviço jurídico e não substitui a orientação de um advogado.`,
+  "harmonizacao-amorosa": DISCLAIMER_BASE,
+};
+
 export function isWorkSlug(slug: string): slug is ServiceSlug {
   return slug in WORK_SPECS;
 }
@@ -106,9 +119,41 @@ Nunca use linguagem técnica, fria ou corporativa ("com base nas informações",
 Nunca prometa resultado material: dinheiro, emprego, aposentadoria, benefício, vitória em processo, indenização, pensão, cura de doença, retorno ou afastamento de pessoa específica. Nunca use "garantido", "infalível", "100%" ou percentuais.
 O conteúdo é espiritual, simbólico e reflexivo.`;
 
-// Padrões que reprovam a saída (defesa além do prompt).
-const TEXTO_PROIBIDO =
-  /garantid|infal[íi]vel|\b100\s*%|ganho de causa|vai ganhar (?:a |o )?(?:causa|processo|a[çc][ãa]o)|vit[óo]ria (?:no|do) processo|indeniza[çc][ãa]o (?:vai|ser[áa])|sua aposentadoria (?:vai|sai|ser[áa])|(?:vai|ir[áa]) (?:entrar|receber) dinheiro|emprego (?:garantido|certo|vai chegar)|vai voltar para (?:voc[êe]|ti)|far[áa] (?:ele|ela) voltar|amarra[çc][ãa]o/i;
+// ─── Validação da saída (defesa além do prompt) ──────────────────────────────
+// Regex de FRASE literal não segura promessa parafraseada ("o dinheiro chega
+// até você", "o juiz vai olhar com bons olhos"). Por isso combinamos duas
+// camadas:
+//   1. termos absolutos, que nunca podem aparecer;
+//   2. VERBO DE CERTEZA + ASSUNTO PROIBIDO na mesma frase — pega a família
+//      inteira de promessas (dinheiro/emprego/processo/pessoa/cura) sem
+//      precisar prever a redação exata.
+const TERMOS_ABSOLUTOS =
+  /garantid|infal[íi]vel|\b100\s*%|sem falta|com toda a certeza|pode ter certeza que|\b(?:te )?(?:garanto|prometo|asseguro)\b|vai dar certo|dar[áa] certo|n[ãa]o tem erro/i;
+
+// Verbos/expressões que afirmam que ALGO VAI ACONTECER.
+const CERTEZA =
+  "(?:vai|v[ãa]o|ir[áa]|ir[ãa]o|ser[áa]|estar[áa]|logo|em breve|dentro de|at[ée] o fim|com certeza|garanto|prometo|asseguro|chega|chegar[áa]|vem a[ií]|acontecer[áa]|ganhar[áa]|receber[áa]|voltar[áa]|conquistar[áa])";
+// Assuntos onde prometer resultado é proibido.
+const ASSUNTO =
+  "(?:dinheiro|grana|renda|sal[áa]rio|emprego|trabalho novo|vaga|clientes?|vendas?|aposentadoria|benef[íi]cio|pens[ãa]o|indeniza[çc][ãa]o|processo|causa|ju[íi]z|justi[çc]a|senten[çc]a|julgamento|acordo|cura|doen[çc]a|exame|diagn[óo]stico|ele voltar?|ela voltar?|de volta|reconcilia|casamento de volta)";
+
+// Janela curta (≤60 chars) para o par certeza+assunto continuar na mesma ideia.
+const PROMESSA_PARAFRASEADA = new RegExp(
+  `${CERTEZA}[^.!?]{0,60}${ASSUNTO}|${ASSUNTO}[^.!?]{0,60}${CERTEZA}`,
+  "i"
+);
+
+// Relato de ato FÍSICO executado — nada é feito com as mãos; afirmar isso
+// seria descrever um fato que não aconteceu.
+const ATO_FISICO_EXECUTADO =
+  /\b(?:acendi|passei|coloquei|banhei|lavei|enterrei|queimei|amarrei|benzi|risquei|firmei|despachei|preparei a mesa|fiz o (?:banho|despacho|ebó))\b/i;
+
+function violaCompliance(texto: string): string | null {
+  if (TERMOS_ABSOLUTOS.test(texto)) return "termo_absoluto";
+  if (PROMESSA_PARAFRASEADA.test(texto)) return "promessa_de_resultado";
+  if (ATO_FISICO_EXECUTADO.test(texto)) return "ato_fisico_relatado";
+  return null;
+}
 
 export interface WorkInput {
   slug: ServiceSlug;
@@ -137,12 +182,14 @@ Escreva o trabalho dela em JSON válido com esta estrutura:
   "title": "título curto e emocional deste trabalho para ela",
   "opening": "abertura acolhedora e única, chamando ela pelo nome, mostrando que você leu a intenção dela",
   "reading": "o que você sente e o que os guias mostram sobre a situação que ela te contou — concreto e pessoal, sem promessa de resultado",
-  "ritual_message": "a descrição simbólica do trabalho espiritual que você preparou para ela, com o nome dela e a intenção dela",
+  "ritual_message": "a oração/mensagem espiritual que você eleva pela intenção dela, escrita no presente e em linguagem simbólica (ex.: 'que a luz recolha o peso do teu peito'). NUNCA descreva atos físicos que você teria executado — nada de 'acendi a vela', 'passei o manto', 'coloquei a rosa'. É prece e símbolo, não relato de um ritual material",
   "protection_message": "mensagem de proteção e amparo para os próximos dias",
   "next_steps": ["passo simples e seguro 1", "passo simples e seguro 2", "passo simples e seguro 3"],
   "closing": "fechamento na sua voz, do jeito que você se despediria dela",
   "disclaimer": "mensagem curta e carinhosa dizendo que é orientação espiritual e reflexiva e que não substitui acompanhamento profissional"
 }
+
+IMPORTANTE sobre "ritual_message": escreva como prece e símbolo, no presente ("que a luz recolha...", "peço que..."), nunca como relato de algo material que você fez com as mãos.
 
 Limites:
 - Máximo 900 palavras no total
@@ -197,8 +244,9 @@ Responda APENAS com o JSON puro, sem markdown, sem texto antes ou depois.`;
       ]
         .filter((s) => typeof s === "string")
         .join(" ");
-      if (TEXTO_PROIBIDO.test(tudo)) {
-        console.warn("[Trabalhos] Saída violou compliance — regerando");
+      const violacao = violaCompliance(tudo);
+      if (violacao) {
+        console.warn(`[Trabalhos] Saída reprovada (${violacao}) — regerando`);
         return null;
       }
       return parsed;
@@ -220,6 +268,13 @@ Responda APENAS com o JSON puro, sem markdown, sem texto antes ou depois.`;
       "Se puder, acenda uma vela branca em um lugar seguro e agradeça com as suas palavras.",
     ];
   }
+
+  // ── Disclaimer DETERMINÍSTICO ─────────────────────────────────────────────
+  // O aviso legal não pode depender de a IA lembrar de escrevê-lo: aqui ele é
+  // sobrescrito por um texto fixo. No Xangô isso inclui o aviso jurídico
+  // obrigatório — o produto é vendido justamente para quem atravessa uma
+  // disputa, e é o ponto de maior risco se o aviso faltar.
+  json.disclaimer = DISCLAIMER_FIXO[input.slug];
 
   const text = [
     json.title,

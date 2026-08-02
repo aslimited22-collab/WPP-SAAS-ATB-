@@ -10,7 +10,11 @@
 
 import type { createServiceSupabaseClient } from "@/lib/supabase";
 import type { ServiceSlug } from "@/content/servicos";
-import { generateWorkReading, generateWorkImage } from "@/lib/spiritual-works";
+import {
+  generateWorkReading,
+  generateWorkImage,
+  DISCLAIMER_FIXO,
+} from "@/lib/spiritual-works";
 import { sendServicoEntregaEmail } from "@/lib/email";
 import { pedidoUrl } from "@/lib/spiritual-services";
 
@@ -174,6 +178,10 @@ export async function entregarTrabalho(
     nome: order.nome_completo_ritual ?? order.cliente_nome,
     servicoNome,
     pedidoUrl: pedidoUrl(opts.baseUrl, order.access_token as string),
+    // Aviso legal do produto (jurídico no Xangô) também no e-mail.
+    disclaimerExtra: DISCLAIMER_FIXO[slug],
+    // Não prometer imagem que não foi gerada.
+    temImagem: base.imagem,
   });
   base.email = mail.ok;
 
