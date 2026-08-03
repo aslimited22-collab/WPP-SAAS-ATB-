@@ -39,10 +39,10 @@ export const PRODUCT_PRICES: Record<ProductId, Record<Currency, number>> = {
     jpy: 450, // ¥450
   },
   pergunta3: {
-    brl: 1990, // R$19,90 — 3 perguntas no chat
-    usd: 400, // $4.00
-    eur: 380, // €3,80
-    jpy: 600, // ¥600
+    brl: 2900, // R$29,00 — 3 perguntas no chat
+    usd: 600, // $6.00
+    eur: 550, // €5,50
+    jpy: 900, // ¥900
   },
   pergunta7: {
     brl: 3990, // R$39,90 — 7 perguntas no chat
@@ -67,6 +67,23 @@ export const PRODUCT_TYPE: Record<ProductId, CheckoutMode> = {
   limpeza: "payment",
 };
 
+// Produtos DESCONTINUADOS para novas vendas (03/08/2026): as assinaturas
+// (basic/premium) e a compra de 1 pergunta saíram do catálogo.
+// ATENÇÃO: os tipos e preços acima continuam existindo de propósito —
+// há assinantes ATIVOS cujas RENOVAÇÕES seguem chegando pelo webhook e
+// precisam ser provisionadas normalmente. O que muda é só a venda nova.
+export const PRODUTOS_DESCONTINUADOS: ProductId[] = [
+  "basic",
+  "premium",
+  "pergunta1",
+];
+
+export function isProdutoDescontinuado(s: string): boolean {
+  return (PRODUTOS_DESCONTINUADOS as string[]).includes(s);
+}
+
+// Produto existe no catálogo? (inclui os descontinuados — usado por código
+// que precisa reconhecer o produto, como o provisionamento de renovação.)
 export function isValidProduct(s: string): s is ProductId {
   return (
     s === "basic" ||
@@ -76,6 +93,11 @@ export function isValidProduct(s: string): s is ProductId {
     s === "pergunta7" ||
     s === "limpeza"
   );
+}
+
+// Produto pode ser COMPRADO agora? (usado pelo roteador de checkout)
+export function isProdutoAVenda(s: string): s is ProductId {
+  return isValidProduct(s) && !isProdutoDescontinuado(s);
 }
 
 // URL de checkout Kiwify por produto (branch Brasil do roteador).

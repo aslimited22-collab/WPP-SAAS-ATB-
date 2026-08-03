@@ -35,6 +35,9 @@ const DICT: Record<
     limpezaTitle: string;
     limpezaDesc: string;
     limpezaCta: string;
+    trabalhosTitle: string;
+    trabalhosDesc: string;
+    trabalhosCta: string;
     trustTitle: string;
     trust: string[];
     disclaimer: string;
@@ -81,18 +84,22 @@ const DICT: Record<
     perguntasDesc:
       "Sem assinatura, sem compromisso. Pague uma vez e pergunte agora — sobre ele, sobre a família, sobre aquilo que não te deixa dormir.",
     pergunta1: "1 pergunta — R$14,90",
-    pergunta3: "3 perguntas — R$19,90 · a mais escolhida",
+    pergunta3: "3 perguntas — R$29 · a mais escolhida",
     pergunta7: "7 perguntas — R$39,90 · melhor valor",
     limpezaTitle: "Sente um peso que não é seu?",
     limpezaDesc:
       "Olho gordo, inveja, caminhos que fecham sem explicação... A ATB prepara a SUA Limpeza Espiritual: o que está travado, de onde vem, e os passos para se libertar. Chega por e-mail e WhatsApp, sua para sempre.",
     limpezaCta: "✦ Quero me libertar disso — R$100",
+    trabalhosTitle: "Trabalhos Espirituais individuais",
+    trabalhosDesc:
+      "Um trabalho preparado só para você, a partir do seu nome e da sua intenção: encerramento de ciclos, prosperidade, devoção a Xangô e harmonização amorosa.",
+    trabalhosCta: "✦ Ver os Trabalhos Espirituais",
     trustTitle: "Pode ficar tranquila",
     trust: [
       "Pagamento 100% seguro (Kiwify e Stripe, os mesmos dos grandes sites)",
       "Acesso no seu e-mail em minutos — sem complicação nenhuma",
       "Tudo no seu idioma, com letras grandes e fáceis de ler",
-      "Cancele a assinatura quando quiser, sem ligação e sem perguntas",
+      "Sem mensalidade e sem fidelidade — você paga só pelo que pedir",
     ],
     disclaimer:
       "As leituras do ATB TAROT têm caráter de entretenimento e reflexão. Não substituem aconselhamento profissional.",
@@ -144,6 +151,10 @@ const DICT: Record<
     limpezaDesc:
       "Evil eye, envy, paths that close for no reason... ATB prepares YOUR Spiritual Cleansing: what is blocked, where it comes from, and the steps to set yourself free. Delivered by email and WhatsApp, yours forever.",
     limpezaCta: "✦ I want to be free of this — $19",
+    trabalhosTitle: "Individual Spiritual Works",
+    trabalhosDesc:
+      "A work prepared just for you, from your name and your intention: closing cycles, prosperity, devotion to Xangô and love harmonization.",
+    trabalhosCta: "✦ See the Spiritual Works",
     trustTitle: "You can feel at ease",
     trust: [
       "100% secure payment (Stripe — trusted by the world's biggest sites)",
@@ -201,6 +212,10 @@ const DICT: Record<
     limpezaDesc:
       "Mal de ojo, envidia, caminos que se cierran sin explicación... ATB prepara TU Limpieza Espiritual: qué está bloqueado, de dónde viene, y los pasos para liberarte. Llega por correo y WhatsApp, tuya para siempre.",
     limpezaCta: "✦ Quiero liberarme de esto — $19",
+    trabalhosTitle: "Trabajos Espirituales individuales",
+    trabalhosDesc:
+      "Un trabajo preparado solo para ti, desde tu nombre y tu intención: cierre de ciclos, prosperidad, devoción a Xangô y armonización amorosa.",
+    trabalhosCta: "✦ Ver los Trabajos Espirituales",
     trustTitle: "Puedes quedarte tranquila",
     trust: [
       "Pago 100% seguro (Stripe — el mismo de los grandes sitios)",
@@ -258,6 +273,10 @@ const DICT: Record<
     limpezaDesc:
       "Böser Blick, Neid, Wege, die sich ohne Grund verschließen... ATB bereitet DEINE Spirituelle Reinigung vor: was blockiert ist, woher es kommt, und die Schritte, um dich zu befreien. Kommt per E-Mail und WhatsApp — für immer deine.",
     limpezaCta: "✦ Ich will mich davon befreien — 18 €",
+    trabalhosTitle: "Individuelle spirituelle Arbeiten",
+    trabalhosDesc:
+      "Eine Arbeit nur für dich, aus deinem Namen und deiner Absicht: Zyklen schließen, Wohlstand, Hingabe an Xangô und Harmonisierung der Liebe.",
+    trabalhosCta: "✦ Die spirituellen Arbeiten ansehen",
     trustTitle: "Du kannst ganz beruhigt sein",
     trust: [
       "100 % sichere Zahlung (Stripe — wie bei den größten Websites)",
@@ -315,6 +334,10 @@ const DICT: Record<
     limpezaDesc:
       "Malocchio, invidia, strade che si chiudono senza spiegazione... ATB prepara la TUA Pulizia Spirituale: cosa è bloccato, da dove viene, e i passi per liberarti. Arriva via email e WhatsApp — tua per sempre.",
     limpezaCta: "✦ Voglio liberarmi di questo — 18 €",
+    trabalhosTitle: "Lavori Spirituali individuali",
+    trabalhosDesc:
+      "Un lavoro preparato solo per te, dal tuo nome e dalla tua intenzione: chiusura di cicli, prosperità, devozione a Xangô e armonizzazione amorosa.",
+    trabalhosCta: "✦ Vedi i Lavori Spirituali",
     trustTitle: "Puoi stare tranquilla",
     trust: [
       "Pagamento 100% sicuro (Stripe — lo stesso dei grandi siti)",
@@ -472,37 +495,21 @@ export default function LandingPage() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-8 items-start">
-            {/* Assinatura */}
+            {/* Trabalhos Espirituais individuais */}
             <div className="mystic-card p-9 border-2 border-[#c9a84c]/40 flex flex-col">
-              <div className="text-[#b5ab97] text-base mb-2">{t.planTitle}</div>
-              <div className="font-serif text-6xl gold-gradient-text font-bold mb-1">
-                {t.planPrice}
-              </div>
-              <div className="text-[#aca189] text-base mb-8">{t.planPer}</div>
-
-              <ul className="text-left space-y-4 mb-9 flex-1">
-                {t.planBenefits.map((benefit) => (
-                  <li
-                    key={benefit}
-                    className="flex items-start gap-3 text-base text-[#e8e0d0]/90 leading-relaxed"
-                  >
-                    <span className="text-[#c9a84c] text-xl leading-none mt-0.5">
-                      ✦
-                    </span>
-                    {benefit}
-                  </li>
-                ))}
-              </ul>
-
-              <a
-                href="/api/checkout/basic"
+              <div className="text-3xl mb-2">🕯️</div>
+              <h3 className="font-serif text-2xl text-[#c9a84c] mb-3">
+                {t.trabalhosTitle}
+              </h3>
+              <p className="text-[#c2b9a4] text-base leading-relaxed mb-7 flex-1">
+                {t.trabalhosDesc}
+              </p>
+              <Link
+                href="/servicos"
                 className="btn-gold w-full text-center block text-lg py-5 rounded-xl"
               >
-                {t.planCta}
-              </a>
-              <p className="text-[#a39878] text-sm mt-4 text-center leading-relaxed">
-                {t.planNote}
-              </p>
+                {t.trabalhosCta}
+              </Link>
             </div>
 
             {/* Perguntas avulsas */}
@@ -523,12 +530,6 @@ export default function LandingPage() {
                   {t.perguntasDesc}
                 </p>
                 <div className="flex flex-col gap-3">
-                  <a
-                    href="/api/checkout/pergunta1"
-                    className="text-[#c9a84c] border-2 border-[#c9a84c]/50 px-6 py-4 rounded-xl text-base font-semibold hover:border-[#c9a84c] hover:bg-[#c9a84c]/10 transition-colors text-center"
-                  >
-                    {t.pergunta1}
-                  </a>
                   <a
                     href="/api/checkout/pergunta3"
                     className="text-[#c9a84c] border-2 border-[#c9a84c]/50 px-6 py-4 rounded-xl text-base font-semibold hover:border-[#c9a84c] hover:bg-[#c9a84c]/10 transition-colors text-center"

@@ -117,12 +117,21 @@ export function currentMonthKey(): string {
 // Fallback usado SOMENTE pelo webhook Kiwify (valores em centavos de REAL).
 // O webhook Stripe resolve o produto por metadata.plan (gravado pelo roteador
 // de checkout) — nunca por valor, pois moedas diferentes colidiriam.
+// ATENÇÃO — 2900 (R$29,00) foi REMOVIDO deste mapa de propósito.
+// Desde 03/08/2026 esse valor é AMBÍGUO: é a renovação da assinatura `basic`
+// (que segue ativa para quem já assinou) E o novo preço de `pergunta3`.
+// Adivinhar pelo valor erraria um dos dois — ou o comprador de 3 perguntas
+// viraria assinante, ou o assinante ganharia créditos de chat e nenhuma
+// leitura. Nesses casos a resolução TEM de vir do product_id da Kiwify
+// (KIWIFY_PRODUCT_BASIC / KIWIFY_PRODUCT_PERGUNTA3); sem ele, o webhook
+// registra e avisa o operador em vez de chutar.
+export const AMOUNT_AMBIGUO = new Set<number>([2900]);
+
 export const AMOUNT_CENTS_TO_PLAN: Record<number, PlanKey> = {
-  2900: "basic", // R$29,00
   29165: "premium", // R$291,65 (preço atual)
   25000: "premium", // R$250,00 (preço legado — mantido para compras antigas)
-  1490: "pergunta1", // R$14,90
-  1990: "pergunta3", // R$19,90
+  1490: "pergunta1", // R$14,90 (descontinuado; mantido p/ compras antigas)
+  1990: "pergunta3", // R$19,90 (preço legado do pergunta3)
   3990: "pergunta7", // R$39,90
   10000: "limpeza", // R$100,00
   9700: "limpeza", // R$97,00 (preço alternativo)

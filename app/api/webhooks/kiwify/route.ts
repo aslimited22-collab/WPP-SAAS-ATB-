@@ -19,6 +19,7 @@ import {
   resolvePlanFromAmount,
   toCents,
   PLAN_CONFIG,
+  AMOUNT_AMBIGUO,
   type PlanKey,
 } from "@/lib/plans";
 import { deliverLimpezaOrder } from "@/lib/delivery";
@@ -447,6 +448,39 @@ export async function POST(request: NextRequest) {
             );
             return NextResponse.json({ ok: true, unmapped: true });
           }
+        }
+
+        // ── 6a-2. VALOR AMBÍGUO ────────────────────────────────────────────
+        // R$29,00 é ao mesmo tempo a renovação da assinatura `basic` e o
+        // preço de `pergunta3`. Se o product_id não resolveu, NÃO chutamos:
+        // entregar o produto errado aqui significa ou dar assinatura a quem
+        // comprou 3 perguntas, ou dar créditos de chat a quem renovou o plano.
+        if (!planFromEnv && amountCents != null && AMOUNT_AMBIGUO.has(amountCents)) {
+          await logAudit(supabase, {
+            action: "KIWIFY_VALOR_AMBIGUO",
+            ipAddress,
+            metadata: {
+              order_id: orderId,
+              product_id: productId,
+              amount_cents: amountCents,
+            },
+          });
+          await notifyOperator({
+            assunto: "⚠️ Compra de R$29 sem product_id — não provisionada",
+            linhas: [
+              `Chegou uma compra de ${(amountCents / 100).toFixed(2)} BRL, que hoje pode ser`,
+              "renovação do plano basic OU compra de 3 perguntas.",
+              `O product_id (${productId ?? "não enviado"}) não bate com nenhum cadastrado.`,
+              "",
+              `Cliente: ${email}`,
+              `Pedido Kiwify: ${orderId}`,
+              "",
+              "AÇÃO: confira na Kiwify qual produto foi vendido e ajuste as envs",
+              "KIWIFY_PRODUCT_BASIC / KIWIFY_PRODUCT_PERGUNTA3. Nada foi entregue.",
+            ],
+          });
+          console.error("[Kiwify] Valor ambíguo sem product_id:", amountCents);
+          return NextResponse.json({ ok: true, ambiguous: true });
         }
 
         const planKey: PlanKey | null =

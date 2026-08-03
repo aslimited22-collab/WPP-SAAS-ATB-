@@ -19,6 +19,7 @@ import {
   currencyForRequest,
   stripeCheckoutLocale,
   isValidProduct,
+  isProdutoAVenda,
 } from "@/lib/pricing";
 
 export const runtime = "nodejs";
@@ -42,6 +43,13 @@ export async function GET(
 
   if (!isValidProduct(plan)) {
     return NextResponse.redirect(`${baseUrl}/#assinar`, 307);
+  }
+
+  // Produto fora do catálogo de vendas (assinaturas e 1 pergunta saíram em
+  // 03/08/2026). Links antigos param aqui em vez de gerar uma venda nova.
+  // Isso NÃO afeta quem já assina: renovações não passam por este roteador.
+  if (!isProdutoAVenda(plan)) {
+    return NextResponse.redirect(`${baseUrl}/#produtos`, 307);
   }
 
   // Pedido do funil da limpeza — SÓ é honrado no produto limpeza, para que
