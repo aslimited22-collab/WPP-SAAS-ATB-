@@ -37,6 +37,7 @@ const DICT: Record<
     limpezaCta: string;
     trabalhosTitle: string;
     trabalhosDesc: string;
+    trabalhosItems: { slug: string; emoji: string; label: string }[];
     trabalhosCta: string;
     trustTitle: string;
     trust: string[];
@@ -92,8 +93,14 @@ const DICT: Record<
     limpezaCta: "✦ Quero me libertar disso — R$100",
     trabalhosTitle: "Trabalhos Espirituais individuais",
     trabalhosDesc:
-      "Um trabalho preparado só para você, a partir do seu nome e da sua intenção: encerramento de ciclos, prosperidade, devoção a Xangô e harmonização amorosa.",
-    trabalhosCta: "✦ Ver os Trabalhos Espirituais",
+      "Um trabalho preparado só para você, a partir do seu nome e da sua intenção. Escolha o seu:",
+    trabalhosItems: [
+      { slug: "corte-de-lacos", emoji: "🕯️", label: "Divórcio Energético — R$147" },
+      { slug: "ritual-de-prosperidade", emoji: "🌾", label: "Ritual de Prosperidade — R$147" },
+      { slug: "devocao-a-xango", emoji: "⚖️", label: "Devoção a Xangô — R$197" },
+      { slug: "harmonizacao-amorosa", emoji: "💛", label: "Harmonização Amorosa — R$147" },
+    ],
+    trabalhosCta: "✦ Ver todos os Trabalhos Espirituais",
     trustTitle: "Pode ficar tranquila",
     trust: [
       "Pagamento 100% seguro (Kiwify e Stripe, os mesmos dos grandes sites)",
@@ -153,8 +160,14 @@ const DICT: Record<
     limpezaCta: "✦ I want to be free of this — $19",
     trabalhosTitle: "Individual Spiritual Works",
     trabalhosDesc:
-      "A work prepared just for you, from your name and your intention: closing cycles, prosperity, devotion to Xangô and love harmonization.",
-    trabalhosCta: "✦ See the Spiritual Works",
+      "A work prepared just for you, from your name and your intention. Choose yours:",
+    trabalhosItems: [
+      { slug: "corte-de-lacos", emoji: "🕯️", label: "Energetic Divorce — R$147" },
+      { slug: "ritual-de-prosperidade", emoji: "🌾", label: "Prosperity Ritual — R$147" },
+      { slug: "devocao-a-xango", emoji: "⚖️", label: "Devotion to Xangô — R$197" },
+      { slug: "harmonizacao-amorosa", emoji: "💛", label: "Love Harmonization — R$147" },
+    ],
+    trabalhosCta: "✦ See all Spiritual Works",
     trustTitle: "You can feel at ease",
     trust: [
       "100% secure payment (Stripe — trusted by the world's biggest sites)",
@@ -214,8 +227,14 @@ const DICT: Record<
     limpezaCta: "✦ Quiero liberarme de esto — $19",
     trabalhosTitle: "Trabajos Espirituales individuales",
     trabalhosDesc:
-      "Un trabajo preparado solo para ti, desde tu nombre y tu intención: cierre de ciclos, prosperidad, devoción a Xangô y armonización amorosa.",
-    trabalhosCta: "✦ Ver los Trabajos Espirituales",
+      "Un trabajo preparado solo para ti, desde tu nombre y tu intención. Elige el tuyo:",
+    trabalhosItems: [
+      { slug: "corte-de-lacos", emoji: "🕯️", label: "Divorcio Energético — R$147" },
+      { slug: "ritual-de-prosperidade", emoji: "🌾", label: "Ritual de Prosperidad — R$147" },
+      { slug: "devocao-a-xango", emoji: "⚖️", label: "Devoción a Xangô — R$197" },
+      { slug: "harmonizacao-amorosa", emoji: "💛", label: "Armonización Amorosa — R$147" },
+    ],
+    trabalhosCta: "✦ Ver todos los Trabajos Espirituales",
     trustTitle: "Puedes quedarte tranquila",
     trust: [
       "Pago 100% seguro (Stripe — el mismo de los grandes sitios)",
@@ -275,8 +294,14 @@ const DICT: Record<
     limpezaCta: "✦ Ich will mich davon befreien — 18 €",
     trabalhosTitle: "Individuelle spirituelle Arbeiten",
     trabalhosDesc:
-      "Eine Arbeit nur für dich, aus deinem Namen und deiner Absicht: Zyklen schließen, Wohlstand, Hingabe an Xangô und Harmonisierung der Liebe.",
-    trabalhosCta: "✦ Die spirituellen Arbeiten ansehen",
+      "Eine Arbeit nur für dich, aus deinem Namen und deiner Absicht. Wähle deine:",
+    trabalhosItems: [
+      { slug: "corte-de-lacos", emoji: "🕯️", label: "Energetische Trennung — R$147" },
+      { slug: "ritual-de-prosperidade", emoji: "🌾", label: "Wohlstandsritual — R$147" },
+      { slug: "devocao-a-xango", emoji: "⚖️", label: "Hingabe an Xangô — R$197" },
+      { slug: "harmonizacao-amorosa", emoji: "💛", label: "Liebesharmonisierung — R$147" },
+    ],
+    trabalhosCta: "✦ Alle spirituellen Arbeiten ansehen",
     trustTitle: "Du kannst ganz beruhigt sein",
     trust: [
       "100 % sichere Zahlung (Stripe — wie bei den größten Websites)",
@@ -336,8 +361,14 @@ const DICT: Record<
     limpezaCta: "✦ Voglio liberarmi di questo — 18 €",
     trabalhosTitle: "Lavori Spirituali individuali",
     trabalhosDesc:
-      "Un lavoro preparato solo per te, dal tuo nome e dalla tua intenzione: chiusura di cicli, prosperità, devozione a Xangô e armonizzazione amorosa.",
-    trabalhosCta: "✦ Vedi i Lavori Spirituali",
+      "Un lavoro preparato solo per te, dal tuo nome e dalla tua intenzione. Scegli il tuo:",
+    trabalhosItems: [
+      { slug: "corte-de-lacos", emoji: "🕯️", label: "Divorzio Energetico — R$147" },
+      { slug: "ritual-de-prosperidade", emoji: "🌾", label: "Rituale di Prosperità — R$147" },
+      { slug: "devocao-a-xango", emoji: "⚖️", label: "Devozione a Xangô — R$197" },
+      { slug: "harmonizacao-amorosa", emoji: "💛", label: "Armonizzazione Amorosa — R$147" },
+    ],
+    trabalhosCta: "✦ Vedi tutti i Lavori Spirituali",
     trustTitle: "Puoi stare tranquilla",
     trust: [
       "Pagamento 100% sicuro (Stripe — lo stesso dei grandi siti)",
@@ -501,9 +532,20 @@ export default function LandingPage() {
               <h3 className="font-serif text-2xl text-[#c9a84c] mb-3">
                 {t.trabalhosTitle}
               </h3>
-              <p className="text-[#c2b9a4] text-base leading-relaxed mb-7 flex-1">
+              <p className="text-[#c2b9a4] text-base leading-relaxed mb-6">
                 {t.trabalhosDesc}
               </p>
+              <div className="flex flex-col gap-3 mb-4 flex-1">
+                {t.trabalhosItems.map((item) => (
+                  <Link
+                    key={item.slug}
+                    href={`/servicos/${item.slug}`}
+                    className="text-[#c9a84c] border-2 border-[#c9a84c]/50 px-6 py-4 rounded-xl text-base font-semibold hover:border-[#c9a84c] hover:bg-[#c9a84c]/10 transition-colors text-center"
+                  >
+                    {item.emoji} {item.label}
+                  </Link>
+                ))}
+              </div>
               <Link
                 href="/servicos"
                 className="btn-gold w-full text-center block text-lg py-5 rounded-xl"
