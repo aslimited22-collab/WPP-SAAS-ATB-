@@ -27,7 +27,7 @@ export const PRODUCT_PRICES: Record<ProductId, Record<Currency, number>> = {
     jpy: 900, // ¥900/月
   },
   premium: {
-    brl: 25000, // R$250,00/mês
+    brl: 29165, // R$291,65/mês
     usd: 5000, // $50.00/month
     eur: 4500, // €45,00/mês
     jpy: 7500, // ¥7,500/月

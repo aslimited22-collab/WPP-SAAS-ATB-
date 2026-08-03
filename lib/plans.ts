@@ -119,8 +119,8 @@ export function currentMonthKey(): string {
 // de checkout) — nunca por valor, pois moedas diferentes colidiriam.
 export const AMOUNT_CENTS_TO_PLAN: Record<number, PlanKey> = {
   2900: "basic", // R$29,00
-  25000: "premium", // R$250,00
-  29165: "premium", // R$291,65 (preço legado)
+  29165: "premium", // R$291,65 (preço atual)
+  25000: "premium", // R$250,00 (preço legado — mantido para compras antigas)
   1490: "pergunta1", // R$14,90
   1990: "pergunta3", // R$19,90
   3990: "pergunta7", // R$39,90
