@@ -23,11 +23,13 @@ function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
 gtag('config', '${GOOGLE_ADS_ID}', {
   // A URL de páginas privadas carrega a CREDENCIAL do pedido
-  // (/pedido/<access_token>, /entrega/<orderId>). O page_view padrão manda
+  // (/pedido/<access_token>, /entrega/<orderId>, /numerologia/dados?pedido=
+  // <access_token>, /numerologia/obrigado?sid= — o sid é trocável por
+  // access_token via /api/numerologia/pedido). O page_view padrão manda
   // page_location para o Google — o que vazaria esse token para terceiro.
   // Em rotas privadas não enviamos page_view nem a URL.
-  send_page_view: !/^\\/(pedido|entrega)(\\/|$)/.test(window.location.pathname),
-  page_location: /^\\/(pedido|entrega)(\\/|$)/.test(window.location.pathname)
+  send_page_view: !/^\\/(pedido|entrega|numerologia\\/(dados|obrigado))(\\/|$)/.test(window.location.pathname),
+  page_location: /^\\/(pedido|entrega|numerologia\\/(dados|obrigado))(\\/|$)/.test(window.location.pathname)
     ? window.location.origin + '/[privado]'
     : window.location.href
 });`}

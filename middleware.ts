@@ -22,6 +22,15 @@ const PUBLIC_ROUTES = [
   "/api/auth",
   "/api/checkout",
   "/api/limpeza",
+  // Funil da Numerologia (R$45): landing, obrigado, form de dados e download
+  // são públicos (o access_token do pedido é a credencial). Sem estar aqui,
+  // a cliente deslogada cairia em /login no meio da compra.
+  "/numerologia",
+  "/api/numerologia",
+  // Crons da Vercel chegam sem sessão Supabase — sem estar aqui o middleware
+  // devolve 401 ANTES do check de CRON_SECRET e o cron nunca executa.
+  // A rota em si é fail-closed: exige Authorization: Bearer <CRON_SECRET>.
+  "/api/cron",
 ];
 
 // Métodos que alteram estado — exigem verificação de Origin

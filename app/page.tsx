@@ -36,6 +36,9 @@ const DICT: Record<
     limpezaTitle: string;
     limpezaDesc: string;
     limpezaCta: string;
+    numerologiaTitle: string;
+    numerologiaDesc: string;
+    numerologiaCta: string;
     trabalhosTitle: string;
     trabalhosDesc: string;
     trabalhosItems: { slug: string; emoji: string; label: string }[];
@@ -92,6 +95,10 @@ const DICT: Record<
     limpezaDesc:
       "Olho gordo, inveja, caminhos que fecham sem explicação... A ATB prepara a SUA Limpeza Espiritual: o que está travado, de onde vem, e os passos para se libertar. Chega por e-mail e WhatsApp, sua para sempre.",
     limpezaCta: "✦ Quero me libertar disso — R$100",
+    numerologiaTitle: "Numerologia — seus números da sorte",
+    numerologiaDesc:
+      "Seu nome completo e sua data de nascimento guardam números que falam do seu destino, do seu coração e dos seus dons. A ATB revela cada um deles num mapa completo em PDF — seu pra sempre.",
+    numerologiaCta: "✦ Quero minha Numerologia — R$45",
     trabalhosTitle: "Trabalhos Espirituais individuais",
     trabalhosDesc:
       "Um trabalho preparado só para você, a partir do seu nome e da sua intenção. Escolha o seu:",
@@ -159,6 +166,10 @@ const DICT: Record<
     limpezaDesc:
       "Evil eye, envy, paths that close for no reason... ATB prepares YOUR Spiritual Cleansing: what is blocked, where it comes from, and the steps to set yourself free. Delivered by email and WhatsApp, yours forever.",
     limpezaCta: "✦ I want to be free of this — $19",
+    numerologiaTitle: "Numerology — your personal lucky numbers",
+    numerologiaDesc:
+      "Your full name and date of birth hold numbers that speak of your destiny, your heart and your gifts. ATB reveals each one in a complete PDF map — yours forever.",
+    numerologiaCta: "✦ I want my Numerology — $45",
     trabalhosTitle: "Individual Spiritual Works",
     trabalhosDesc:
       "A work prepared just for you, from your name and your intention. Choose yours:",
@@ -226,6 +237,10 @@ const DICT: Record<
     limpezaDesc:
       "Mal de ojo, envidia, caminos que se cierran sin explicación... ATB prepara TU Limpieza Espiritual: qué está bloqueado, de dónde viene, y los pasos para liberarte. Llega por correo y WhatsApp, tuya para siempre.",
     limpezaCta: "✦ Quiero liberarme de esto — $19",
+    numerologiaTitle: "Numerología — tus números de la suerte",
+    numerologiaDesc:
+      "Tu nombre completo y tu fecha de nacimiento guardan números que hablan de tu destino, tu corazón y tus dones. ATB revela cada uno en un mapa completo en PDF — tuyo para siempre.",
+    numerologiaCta: "✦ Quiero mi Numerología — $45",
     trabalhosTitle: "Trabajos Espirituales individuales",
     trabalhosDesc:
       "Un trabajo preparado solo para ti, desde tu nombre y tu intención. Elige el tuyo:",
@@ -293,6 +308,10 @@ const DICT: Record<
     limpezaDesc:
       "Böser Blick, Neid, Wege, die sich ohne Grund verschließen... ATB bereitet DEINE Spirituelle Reinigung vor: was blockiert ist, woher es kommt, und die Schritte, um dich zu befreien. Kommt per E-Mail und WhatsApp — für immer deine.",
     limpezaCta: "✦ Ich will mich davon befreien — 18 €",
+    numerologiaTitle: "Numerologie — deine persönlichen Glückszahlen",
+    numerologiaDesc:
+      "Dein voller Name und dein Geburtsdatum tragen Zahlen in sich, die von deinem Schicksal, deinem Herzen und deinen Gaben erzählen. ATB enthüllt jede davon in einer vollständigen PDF-Karte — für immer deine.",
+    numerologiaCta: "✦ Ich will meine Numerologie — 45 €",
     trabalhosTitle: "Individuelle spirituelle Arbeiten",
     trabalhosDesc:
       "Eine Arbeit nur für dich, aus deinem Namen und deiner Absicht. Wähle deine:",
@@ -360,6 +379,10 @@ const DICT: Record<
     limpezaDesc:
       "Malocchio, invidia, strade che si chiudono senza spiegazione... ATB prepara la TUA Pulizia Spirituale: cosa è bloccato, da dove viene, e i passi per liberarti. Arriva via email e WhatsApp — tua per sempre.",
     limpezaCta: "✦ Voglio liberarmi di questo — 18 €",
+    numerologiaTitle: "Numerologia — i tuoi numeri fortunati",
+    numerologiaDesc:
+      "Il tuo nome completo e la tua data di nascita custodiscono numeri che parlano del tuo destino, del tuo cuore e dei tuoi doni. ATB rivela ciascuno di essi in una mappa completa in PDF — tua per sempre.",
+    numerologiaCta: "✦ Voglio la mia Numerologia — 45 €",
     trabalhosTitle: "Lavori Spirituali individuali",
     trabalhosDesc:
       "Un lavoro preparato solo per te, dal tuo nome e dalla tua intenzione. Scegli il tuo:",
@@ -589,6 +612,33 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
+
+          {/* ── Numerologia (R$45) — mapa numerológico em PDF ─────────────── */}
+          {/* Card simples linkando a landing /numerologia (o pitch completo,
+              FAQ e o CTA de checkout vivem lá — mesmo padrão da limpeza). */}
+          {/* Gate pela env do checkout Kiwify: sem
+              NEXT_PUBLIC_KIWIFY_NUMEROLOGIA_URL o checkout BR responde 307
+              pra home = loop morto pro visitante + begin_checkout falso no
+              Ads. Client component: a env NEXT_PUBLIC_* é inlined no build,
+              então o gate é resolvido em build time. A landing /numerologia
+              continua existindo (intl/Stripe funciona sem esta env). */}
+          {process.env.NEXT_PUBLIC_KIWIFY_NUMEROLOGIA_URL && (
+            <div className="mystic-card p-9 border-2 border-[#c9a84c]/40 mt-8 text-center">
+              <div className="text-3xl mb-2">🔢</div>
+              <h3 className="font-serif text-2xl text-[#c9a84c] mb-3">
+                {t.numerologiaTitle}
+              </h3>
+              <p className="text-[#c2b9a4] text-base leading-relaxed mb-6 max-w-2xl mx-auto">
+                {t.numerologiaDesc}
+              </p>
+              <Link
+                href="/numerologia"
+                className="btn-gold inline-block px-8 py-5 rounded-xl text-lg"
+              >
+                {t.numerologiaCta}
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 

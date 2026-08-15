@@ -121,8 +121,18 @@ export async function GET(
       ...(orderId ? { client_reference_id: orderId } : {}),
       // cur + sid alimentam a conversão do Google Ads em /obrigado: cur dá o
       // valor correto na moeda cobrada, sid vira transaction_id (dedupe em F5).
-      success_url: `${baseUrl}/obrigado?plan=${plan}&lang=${appLocale}&cur=${currency}&sid={CHECKOUT_SESSION_ID}`,
-      cancel_url: plan === "limpeza" ? `${baseUrl}/limpeza` : `${baseUrl}/#assinar`,
+      // A numerologia tem obrigado próprio: /numerologia/obrigado faz poll do
+      // webhook (via sid) e leva a cliente ao form de nome+nascimento.
+      success_url:
+        plan === "numerologia"
+          ? `${baseUrl}/numerologia/obrigado?sid={CHECKOUT_SESSION_ID}&lang=${appLocale}&cur=${currency}`
+          : `${baseUrl}/obrigado?plan=${plan}&lang=${appLocale}&cur=${currency}&sid={CHECKOUT_SESSION_ID}`,
+      cancel_url:
+        plan === "limpeza"
+          ? `${baseUrl}/limpeza`
+          : plan === "numerologia"
+            ? `${baseUrl}/numerologia`
+            : `${baseUrl}/#assinar`,
       billing_address_collection: "auto",
       metadata: {
         plan,

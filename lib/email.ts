@@ -22,7 +22,7 @@ export interface EmailResult {
   reason?: string;
 }
 
-function escapeHtml(s: string | null | undefined): string {
+export function escapeHtml(s: string | null | undefined): string {
   if (!s) return "";
   return String(s)
     .replace(/&/g, "&amp;")
@@ -36,6 +36,10 @@ export async function sendEmail(opts: {
   to: string;
   subject: string;
   html: string;
+  /** Cópia oculta (ex.: aviso de entrega pro admin). */
+  bcc?: string;
+  /** Anexos: content em BASE64 (a API HTTP do Resend aceita nesse formato). */
+  attachments?: { filename: string; content: string }[];
 }): Promise<EmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -46,8 +50,12 @@ export async function sendEmail(opts: {
 
   const from = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
 
+  // Anexos aumentam o payload (PDF ~100KB em base64) — timeout com folga.
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15_000);
+  const timer = setTimeout(
+    () => controller.abort(),
+    opts.attachments?.length ? 30_000 : 15_000
+  );
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -60,6 +68,8 @@ export async function sendEmail(opts: {
         to: opts.to,
         subject: opts.subject,
         html: opts.html,
+        ...(opts.bcc ? { bcc: opts.bcc } : {}),
+        ...(opts.attachments?.length ? { attachments: opts.attachments } : {}),
       }),
       signal: controller.signal,
     });
@@ -80,7 +90,7 @@ export async function sendEmail(opts: {
 }
 
 // Layout base místico (dark + dourado) compartilhado por todos os templates.
-function mysticLayout(inner: string): string {
+export function mysticLayout(inner: string): string {
   return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0a0a14;font-family:Georgia,serif;color:#e8e0d0;">
 <div style="max-width:560px;margin:0 auto;padding:30px 20px;">
   <div style="background:linear-gradient(135deg,#15102a,#1f1640,#15102a);border-radius:20px;padding:40px 28px;text-align:center;border:2px solid rgba(201,168,76,0.4);">
@@ -90,7 +100,7 @@ function mysticLayout(inner: string): string {
 </div></body></html>`;
 }
 
-function goldButton(href: string, label: string): string {
+export function goldButton(href: string, label: string): string {
   return `<a href="${escapeHtml(href)}" style="display:inline-block;background:linear-gradient(135deg,#c9a84c,#a8862e);color:#0a0a14;font-weight:800;font-size:19px;padding:18px 34px;border-radius:14px;text-decoration:none;box-shadow:0 8px 24px rgba(201,168,76,0.4);">${label}</a>`;
 }
 
@@ -268,6 +278,49 @@ export async function sendLimpezaEmail(opts: {
     <h1 style="color:#c9a84c;font-size:28px;margin:0 0 14px;">${copy.title}</h1>
     <p style="font-size:17px;line-height:1.65;margin:0 0 24px;">${copy.body(firstName)}</p>
     ${goldButton(opts.deliveryLink, copy.cta)}
+    <p style="color:#9a8f78;font-size:13px;line-height:1.6;margin:26px 0 0;">${copy.note}</p>
+  `);
+
+  return sendEmail({ to: opts.email, subject: copy.subject, html });
+}
+
+// ─── E-mail pós-compra da Numerologia (pede nome + nascimento) ───────────────
+// Enviado pelo webhook assim que o pagamento confirma: a entrega (mapa em PDF)
+// SÓ acontece depois de a cliente preencher o form no link único.
+// Produto BR-first: por enquanto as 5 chaves de locale apontam pro pt-BR
+// (mesma decisão de content/servicos.ts).
+const NUMEROLOGIA_DADOS_COPY_PT = {
+  subject: "🔢 Falta 1 passo pro seu mapa de Numerologia",
+  title: "Pagamento confirmado!",
+  body: (n: string) =>
+    `<strong style="color:#c9a84c;">${n}</strong>, que alegria!<br>Sua Numerologia da ATB foi confirmada. Agora só falta 1 passo: informe seu <strong style="color:#c9a84c;">nome completo</strong> e sua <strong style="color:#c9a84c;">data de nascimento</strong> — é deles que os seus números nascem.`,
+  cta: "✦ Informar meus dados",
+  note: "Leva 1 minuto. Depois disso, seu mapa completo chega em PDF neste mesmo e-mail. Guarde esta mensagem: o botão é o seu acesso.",
+};
+
+const NUMEROLOGIA_DADOS_COPY: Record<AppLocale, typeof NUMEROLOGIA_DADOS_COPY_PT> = {
+  "pt-BR": NUMEROLOGIA_DADOS_COPY_PT,
+  en: NUMEROLOGIA_DADOS_COPY_PT,
+  es: NUMEROLOGIA_DADOS_COPY_PT,
+  de: NUMEROLOGIA_DADOS_COPY_PT,
+  it: NUMEROLOGIA_DADOS_COPY_PT,
+};
+
+export async function sendNumerologiaDadosEmail(opts: {
+  email: string;
+  nome?: string | null;
+  locale: AppLocale;
+  dadosUrl: string;
+}): Promise<EmailResult> {
+  const copy = NUMEROLOGIA_DADOS_COPY[opts.locale];
+  const firstName =
+    escapeHtml((opts.nome ?? "").trim().split(/\s+/)[0]) || "querida alma";
+
+  const html = mysticLayout(`
+    <div style="font-size:56px;margin-bottom:14px;">🔢</div>
+    <h1 style="color:#c9a84c;font-size:28px;margin:0 0 14px;">${copy.title}</h1>
+    <p style="font-size:17px;line-height:1.65;margin:0 0 24px;">${copy.body(firstName)}</p>
+    ${goldButton(opts.dadosUrl, copy.cta)}
     <p style="color:#9a8f78;font-size:13px;line-height:1.6;margin:26px 0 0;">${copy.note}</p>
   `);
 

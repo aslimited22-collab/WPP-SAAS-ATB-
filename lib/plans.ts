@@ -21,7 +21,8 @@ export type PlanKey =
   | "pergunta1"
   | "pergunta3"
   | "pergunta7"
-  | "limpeza";
+  | "limpeza"
+  | "numerologia";
 export type UserPlan = "basic" | "premium";
 
 export interface PlanConfig {
@@ -82,6 +83,16 @@ export const PLAN_CONFIG: Record<PlanKey, PlanConfig> = {
     readingCreditMode: "add",
     chatCredits: 0,
   },
+  // A numerologia tem pedido próprio (numerologia_orders/numerologia_readings):
+  // o webhook cria o pedido pago e envia o link do form de dados — a entrega
+  // (PDF por e-mail) só acontece depois de a cliente informar nome+nascimento.
+  numerologia: {
+    userPlan: null,
+    isSubscription: false,
+    readingCredits: 0,
+    readingCreditMode: "add",
+    chatCredits: 0,
+  },
 };
 
 const PLAN_KEYS: PlanKey[] = [
@@ -91,6 +102,7 @@ const PLAN_KEYS: PlanKey[] = [
   "pergunta3",
   "pergunta7",
   "limpeza",
+  "numerologia",
 ];
 
 // ─── Chat com a ATB (DeepSeek) ────────────────────────────────────────────────
@@ -135,6 +147,8 @@ export const AMOUNT_CENTS_TO_PLAN: Record<number, PlanKey> = {
   3990: "pergunta7", // R$39,90
   10000: "limpeza", // R$100,00
   9700: "limpeza", // R$97,00 (preço alternativo)
+  4500: "numerologia", // R$45,00 — Mapa Numerológico (fallback se o
+  // KIWIFY_PRODUCT_NUMEROLOGIA não estiver configurado; valor único no catálogo)
 };
 
 // Normaliza um valor que pode vir como número ou string (ex.: "2900", "29.00").

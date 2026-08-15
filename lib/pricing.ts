@@ -14,7 +14,8 @@ export type ProductId =
   | "pergunta1"
   | "pergunta3"
   | "pergunta7"
-  | "limpeza";
+  | "limpeza"
+  | "numerologia";
 
 export type Currency = "brl" | "usd" | "eur" | "jpy";
 export type CheckoutMode = "subscription" | "payment";
@@ -56,6 +57,12 @@ export const PRODUCT_PRICES: Record<ProductId, Record<Currency, number>> = {
     eur: 1800, // €18,00
     jpy: 2900, // ¥2,900
   },
+  numerologia: {
+    brl: 4500, // R$45,00 — Mapa Numerológico completo em PDF
+    usd: 4500, // $45.00
+    eur: 4500, // €45,00
+    jpy: 4500, // ¥4,500
+  },
 };
 
 export const PRODUCT_TYPE: Record<ProductId, CheckoutMode> = {
@@ -65,6 +72,7 @@ export const PRODUCT_TYPE: Record<ProductId, CheckoutMode> = {
   pergunta3: "payment",
   pergunta7: "payment",
   limpeza: "payment",
+  numerologia: "payment",
 };
 
 // Produtos DESCONTINUADOS para novas vendas (03/08/2026): as assinaturas
@@ -91,7 +99,8 @@ export function isValidProduct(s: string): s is ProductId {
     s === "pergunta1" ||
     s === "pergunta3" ||
     s === "pergunta7" ||
-    s === "limpeza"
+    s === "limpeza" ||
+    s === "numerologia"
   );
 }
 
@@ -109,6 +118,7 @@ export function kiwifyUrlFor(product: ProductId): string | undefined {
     pergunta3: process.env.NEXT_PUBLIC_KIWIFY_PERGUNTA3_URL,
     pergunta7: process.env.NEXT_PUBLIC_KIWIFY_PERGUNTA7_URL,
     limpeza: process.env.NEXT_PUBLIC_KIWIFY_LIMPEZA_URL,
+    numerologia: process.env.NEXT_PUBLIC_KIWIFY_NUMEROLOGIA_URL,
   };
   return map[product];
 }
@@ -123,6 +133,7 @@ export function productDisplayName(product: ProductId, locale: AppLocale): strin
       pergunta3: "ATB — 3 Perguntas Espirituais",
       pergunta7: "ATB — 7 Perguntas Espirituais",
       limpeza: "ATB — Limpeza Espiritual Personalizada",
+      numerologia: "ATB — Numerologia — Mapa Numerológico",
     },
     en: {
       basic: "ATB TAROT — Monthly Plan",
@@ -131,6 +142,8 @@ export function productDisplayName(product: ProductId, locale: AppLocale): strin
       pergunta3: "ATB — 3 Spiritual Questions",
       pergunta7: "ATB — 7 Spiritual Questions",
       limpeza: "ATB — Personalized Spiritual Cleansing",
+      // Nome mantido em pt (produto BR-first; mesma grafia em todos os idiomas)
+      numerologia: "ATB — Numerologia — Mapa Numerológico",
     },
     es: {
       basic: "ATB TAROT — Plan Mensual",
@@ -139,6 +152,7 @@ export function productDisplayName(product: ProductId, locale: AppLocale): strin
       pergunta3: "ATB — 3 Preguntas Espirituales",
       pergunta7: "ATB — 7 Preguntas Espirituales",
       limpeza: "ATB — Limpieza Espiritual Personalizada",
+      numerologia: "ATB — Numerologia — Mapa Numerológico",
     },
     de: {
       basic: "ATB TAROT — Monatsplan",
@@ -147,6 +161,7 @@ export function productDisplayName(product: ProductId, locale: AppLocale): strin
       pergunta3: "ATB — 3 Spirituelle Fragen",
       pergunta7: "ATB — 7 Spirituelle Fragen",
       limpeza: "ATB — Persönliche Spirituelle Reinigung",
+      numerologia: "ATB — Numerologia — Mapa Numerológico",
     },
     it: {
       basic: "ATB TAROT — Piano Mensile",
@@ -155,6 +170,7 @@ export function productDisplayName(product: ProductId, locale: AppLocale): strin
       pergunta3: "ATB — 3 Domande Spirituali",
       pergunta7: "ATB — 7 Domande Spirituali",
       limpeza: "ATB — Pulizia Spirituale Personalizzata",
+      numerologia: "ATB — Numerologia — Mapa Numerológico",
     },
   };
   return names[locale][product];

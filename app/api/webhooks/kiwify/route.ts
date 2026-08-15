@@ -23,7 +23,11 @@ import {
   type PlanKey,
 } from "@/lib/plans";
 import { deliverLimpezaOrder } from "@/lib/delivery";
-import { sendAccessEmail, sendAdminSaleNotification } from "@/lib/email";
+import {
+  sendAccessEmail,
+  sendAdminSaleNotification,
+  sendNumerologiaDadosEmail,
+} from "@/lib/email";
 import {
   findServiceByKiwifyProductId,
   processarCompraServico,
@@ -611,6 +615,89 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ ok: true, plan: "limpeza" });
         }
 
+        // ── 6c-1. Numerologia (R$45): cria o pedido pago e pede os dados ────
+        // A entrega NÃO acontece aqui: a cliente ainda não informou nome
+        // completo + data de nascimento. O e-mail leva ao form
+        // /numerologia/dados?pedido=<access_token>; o POST de lá entrega.
+        // Idempotente pelo índice único em kiwify_order_id (23505 = duplicata).
+        if (planKey === "numerologia") {
+          let numOrder: { id: string; access_token: string } | null = null;
+          const { data: createdNum, error: numErr } = await supabase
+            .from("numerologia_orders")
+            .insert({
+              email,
+              name: nome || null,
+              locale: "pt-BR",
+              status: "paid",
+              payment_provider: "kiwify",
+              kiwify_order_id: orderId,
+              amount_cents: amountCents ?? 4500,
+              currency: "brl",
+            })
+            .select("id, access_token")
+            .single();
+          numOrder = createdNum ?? null;
+
+          if (numErr) {
+            if ((numErr as { code?: string }).code === "23505") {
+              // Compra já registrada (retry/duplicata) — reusa o pedido.
+              const { data: existingNum } = await supabase
+                .from("numerologia_orders")
+                .select("id, access_token")
+                .eq("kiwify_order_id", orderId)
+                .maybeSingle();
+              numOrder = existingNum ?? null;
+            }
+            if (!numOrder) {
+              console.error(
+                "[Kiwify] Falha ao criar pedido de numerologia:",
+                numErr.message
+              );
+              await releaseKiwifyEvent(supabase, event, orderId);
+              return NextResponse.json(
+                { error: "Erro interno ao processar compra" },
+                { status: 500 }
+              );
+            }
+          }
+          if (!numOrder) {
+            // .single() sem erro sempre traz a linha — guarda por segurança.
+            await releaseKiwifyEvent(supabase, event, orderId);
+            return NextResponse.json(
+              { error: "Erro interno ao processar compra" },
+              { status: 500 }
+            );
+          }
+
+          const dadosEmail = await sendNumerologiaDadosEmail({
+            email,
+            nome,
+            locale: "pt-BR",
+            dadosUrl: `${baseUrl}/numerologia/dados?pedido=${numOrder.access_token}`,
+          });
+
+          await logAudit(supabase, {
+            action: "KIWIFY_ORDER_APPROVED",
+            ipAddress,
+            metadata: {
+              order_id: orderId,
+              plan: "numerologia",
+              numerologia_order_id: numOrder.id,
+              dados_email_sent: dadosEmail.ok,
+              emailDomain: email.split("@")[1] ?? "unknown",
+            },
+          });
+          await sendAdminSaleNotification({
+            plan: "numerologia",
+            email,
+            nome,
+            amountCents,
+            currency: "brl",
+            provider: "kiwify",
+          });
+          return NextResponse.json({ ok: true, plan: "numerologia" });
+        }
+
         // ── 6d. Assinaturas e perguntas avulsas → conta + créditos ──────────
         const userId = await resolveUserId(supabase, email);
         if (!userId) {
@@ -803,6 +890,13 @@ export async function POST(request: NextRequest) {
         .update({ status: "refunded" })
         .eq("payment_provider", "kiwify")
         .eq("payment_id", orderId);
+
+      // Numerologia → marca o pedido como reembolsado (o download/entrega
+      // exige status 'paid', então o acesso morre junto).
+      await supabase
+        .from("numerologia_orders")
+        .update({ status: "refunded", updated_at: new Date().toISOString() })
+        .eq("kiwify_order_id", orderId);
 
       // Trabalho Espiritual → marca reembolsado e AVISA o operador
       // (para não realizar um ritual que foi estornado).

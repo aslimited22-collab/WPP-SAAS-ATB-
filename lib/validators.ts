@@ -216,6 +216,43 @@ export const servicoPedidoFormSchema = z.object({
 
 export type ServicoPedidoFormInput = z.infer<typeof servicoPedidoFormSchema>;
 
+// ─── Dados pós-compra da Numerologia (/numerologia/dados) ────────────────────
+// A cliente informa o nome completo (o cálculo pitagórico usa cada letra) e a
+// data de nascimento. token = access_token (UUID) do pedido — a credencial.
+// A validação de birth_date segue a mesma regra de data_nascimento do perfil.
+export const numerologiaDadosSchema = z.object({
+  token: z.string().uuid("Link inválido"),
+  full_name: z
+    .string()
+    .min(5, "Escreva seu nome completo")
+    .max(120, "Nome muito longo")
+    .transform(stripControlChars)
+    .transform((v) => v.trim())
+    .refine(
+      (v) => v.length >= 5 && v.includes(" "),
+      "Escreva seu nome completo (nome e sobrenome)"
+    )
+    .refine(
+      (v) => /^[\p{L}\p{M}\s'.-]+$/u.test(v),
+      "Nome contém caracteres inválidos"
+    ),
+  birth_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida (use YYYY-MM-DD)")
+    .refine((d) => {
+      // Verificar se é uma data real (ex: rejeita 2023-02-31)
+      const date = new Date(d + "T00:00:00Z");
+      return (
+        !isNaN(date.getTime()) &&
+        date.toISOString().startsWith(d) &&
+        date < new Date() &&
+        date > new Date("1900-01-01T00:00:00Z")
+      );
+    }, "Data de nascimento inválida"),
+});
+
+export type NumerologiaDadosInput = z.infer<typeof numerologiaDadosSchema>;
+
 // ─── Magic link login ─────────────────────────────────────────────────────────
 export const loginSchema = z.object({
   email: z

@@ -25,7 +25,12 @@ import { getStripe } from "@/lib/stripe";
 import { normalizeLocale, type AppLocale } from "@/lib/locale";
 import { isValidProduct } from "@/lib/pricing";
 import { deliverLimpezaOrder } from "@/lib/delivery";
-import { sendAccessEmail, sendAdminSaleNotification } from "@/lib/email";
+import {
+  sendAccessEmail,
+  sendAdminSaleNotification,
+  sendNumerologiaDadosEmail,
+  sendOperadorEmail,
+} from "@/lib/email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -337,6 +342,93 @@ async function handlePaidCheckout(opts: {
     return NextResponse.json({ ok: true, plan: "limpeza" });
   }
 
+  // ── Numerologia: cria o pedido pago e pede nome + nascimento ───────────────
+  // A entrega (mapa em PDF) só acontece depois do form em /numerologia/dados —
+  // o e-mail leva ao link único. Idempotente pelo índice único em
+  // stripe_session_id (23505 = evento duplicado da mesma sessão).
+  if (planMeta === "numerologia") {
+    let numOrder: { id: string; access_token: string } | null = null;
+    const { data: createdNum, error: numErr } = await supabase
+      .from("numerologia_orders")
+      .insert({
+        email,
+        name: nome || null,
+        locale: buyerLocale,
+        status: "paid",
+        payment_provider: "stripe",
+        stripe_session_id: session.id,
+        // Gravado no pedido para o refund/disputa revogar por match direto
+        // (o audit_log pode nunca existir se o processo morrer antes dele).
+        stripe_payment_intent: paymentIntentId,
+        amount_cents: session.amount_total ?? null,
+        currency,
+      })
+      .select("id, access_token")
+      .single();
+    numOrder = createdNum ?? null;
+
+    if (numErr) {
+      if ((numErr as { code?: string }).code === "23505") {
+        const { data: existingNum } = await supabase
+          .from("numerologia_orders")
+          .select("id, access_token")
+          .eq("stripe_session_id", session.id)
+          .maybeSingle();
+        numOrder = existingNum ?? null;
+      }
+      if (!numOrder) {
+        console.error(
+          "[Stripe] Falha ao criar pedido de numerologia:",
+          numErr.message
+        );
+        await releaseEvent(supabase, eventId);
+        return NextResponse.json(
+          { error: "Erro interno ao processar compra" },
+          { status: 500 }
+        );
+      }
+    }
+    if (!numOrder) {
+      // .single() sem erro sempre traz a linha — guarda por segurança.
+      await releaseEvent(supabase, eventId);
+      return NextResponse.json(
+        { error: "Erro interno ao processar compra" },
+        { status: 500 }
+      );
+    }
+
+    const dadosEmail = await sendNumerologiaDadosEmail({
+      email,
+      nome,
+      locale: buyerLocale,
+      dadosUrl: `${baseUrl}/numerologia/dados?pedido=${numOrder.access_token}`,
+    });
+
+    await logAudit(supabase, {
+      action: "STRIPE_CHECKOUT_SESSION_COMPLETED",
+      ipAddress,
+      eventId,
+      metadata: {
+        session_id: session.id,
+        payment_intent: paymentIntentId,
+        plan: "numerologia",
+        numerologia_order_id: numOrder.id,
+        dados_email_sent: dadosEmail.ok,
+        locale: buyerLocale,
+        emailDomain: email.split("@")[1] ?? "unknown",
+      },
+    });
+    await sendAdminSaleNotification({
+      plan: "numerologia",
+      email,
+      nome,
+      amountCents: session.amount_total ?? null,
+      currency,
+      provider: "stripe",
+    });
+    return NextResponse.json({ ok: true, plan: "numerologia" });
+  }
+
   // ── Demais produtos: metadata.plan → env price id ──────────────────────────
   let planKey: PlanKey | null =
     planMeta && isValidProduct(planMeta) ? planMeta : null;
@@ -355,6 +447,39 @@ async function handlePaidCheckout(opts: {
       // segue com null
     }
     planKey = resolvePlanFromEnv(priceId, "STRIPE_PRICE");
+
+    // Numerologia identificada só pelo price id (sessão sem metadata.plan,
+    // ex. Payment Link manual): o provisionamento genérico abaixo criaria
+    // usuário/plano — errado para este produto, que vive em
+    // numerologia_orders. Sem metadata não dá pra criar o pedido com
+    // segurança: avisa o operador pra criar manualmente e encerra.
+    if (planKey === "numerologia") {
+      console.warn(
+        "[Stripe] Sessão de numerologia SEM metadata.plan — pedido não criado",
+        session.id
+      );
+      await logAudit(supabase, {
+        action: "STRIPE_NUMEROLOGIA_NO_METADATA",
+        ipAddress,
+        eventId,
+        metadata: {
+          session_id: session.id,
+          payment_intent: paymentIntentId,
+          amount_total: session.amount_total,
+          currency,
+        },
+      });
+      await sendOperadorEmail({
+        assunto: "⚠️ Stripe: sessão numerologia sem metadata.plan",
+        linhas: [
+          `Sessão: ${session.id}`,
+          `Cliente: ${email}`,
+          `Valor: ${session.amount_total ?? "?"} ${currency}`,
+          "Sessão criada fora do roteador (ex. Payment Link). Crie o pedido de numerologia manualmente.",
+        ],
+      });
+      return NextResponse.json({ received: true, manual: true });
+    }
   }
 
   if (!planKey) {
@@ -537,6 +662,25 @@ async function revokeByPaymentIntent(
       .update({ status: "refunded" })
       .eq("payment_provider", "stripe")
       .eq("payment_id", paymentIntentId);
+
+    // Numerologia — match DIRETO no pedido (stripe_payment_intent gravado na
+    // compra), como a limpeza faz acima. Não depende do audit_log existir.
+    // O download/entrega exige status 'paid', então o acesso morre junto.
+    await supabase
+      .from("numerologia_orders")
+      .update({ status: "refunded", updated_at: new Date().toISOString() })
+      .eq("stripe_payment_intent", paymentIntentId);
+  }
+
+  // Numerologia (fallback legado) → pedidos criados ANTES da coluna
+  // stripe_payment_intent: localiza pela session_id gravada no audit da compra.
+  const refundedSessionId =
+    typeof meta.session_id === "string" ? meta.session_id : null;
+  if (plan === "numerologia" && refundedSessionId) {
+    await supabase
+      .from("numerologia_orders")
+      .update({ status: "refunded", updated_at: new Date().toISOString() })
+      .eq("stripe_session_id", refundedSessionId);
   }
 
   await logAudit(supabase, {
