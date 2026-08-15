@@ -7,10 +7,12 @@ import { LOCALE_LANGUAGE_NAME } from "@/lib/locale";
 
 const DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions";
 
-// Temperatura recomendada pela DeepSeek para conversa/criação. Respostas mais
-// previsíveis fazem a ATB repetir aberturas — e repetição é o que as clientes
-// sentem como "resposta de robô".
-export const CONVERSATION_TEMPERATURE = 1.3;
+// Temperatura da conversa. 1.3 (recomendação antiga da DeepSeek) DEGENERAVA
+// em respostas longas em pt-BR: começava coerente e terminava em salada de
+// palavras — cliente real reclamou "palavras desconexas, como se fosse só uma
+// IA" (15/08). 1.0 mantém a voz viva sem quebrar a língua; variedade de
+// abertura é papel do prompt, não da temperatura.
+export const CONVERSATION_TEMPERATURE = 1.0;
 
 // Para saídas em JSON estrito (limpeza) — criatividade alta ali quebraria o
 // parse, e o tom vem do prompt, não da temperatura.

@@ -106,7 +106,15 @@ export function isValidProduct(s: string): s is ProductId {
 
 // Produto pode ser COMPRADO agora? (usado pelo roteador de checkout)
 export function isProdutoAVenda(s: string): s is ProductId {
-  return isValidProduct(s) && !isProdutoDescontinuado(s);
+  if (!isValidProduct(s) || isProdutoDescontinuado(s)) return false;
+  // Numerologia: lançamento gateado por env. Sem a URL da Kiwify configurada
+  // o produto NÃO está à venda em canal nenhum (nem Stripe intl) — a migration
+  // do banco pode ainda não ter sido aplicada, e uma venda sem tabela seria
+  // pagamento sem pedido. O card da home já se esconde pela mesma env.
+  if (s === "numerologia" && !process.env.NEXT_PUBLIC_KIWIFY_NUMEROLOGIA_URL) {
+    return false;
+  }
+  return true;
 }
 
 // URL de checkout Kiwify por produto (branch Brasil do roteador).

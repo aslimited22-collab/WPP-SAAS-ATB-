@@ -40,11 +40,12 @@ const DICT: Record<
     emailLabel: "E-mail",
     emailPlaceholder: "seu@email.com",
     errorRate: "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
-    errorGeneric: "Erro ao enviar o link de acesso. Tente novamente.",
+    errorGeneric:
+      "Não conseguimos enviar o link agora. Se você acabou de fazer o pagamento, espere 1 minutinho — estamos confirmando — e toque de novo.",
     sending: "Enviando link mágico...",
     submit: "✦ Enviar Link de Acesso",
-    footerQuestion: "Ainda não é assinante?",
-    footerLink: "Assine por R$29/mês",
+    footerQuestion: "Ainda não tem acesso?",
+    footerLink: "Conheça os trabalhos da ATB",
     footerBrand: "ATB TAROT — Portal de Leituras Místicas",
   },
   en: {
@@ -58,11 +59,12 @@ const DICT: Record<
     emailLabel: "Email",
     emailPlaceholder: "your@email.com",
     errorRate: "Too many attempts. Please wait a few minutes and try again.",
-    errorGeneric: "We couldn't send your access link. Please try again.",
+    errorGeneric:
+      "We couldn't send your access link. If you just completed a payment, wait a minute while we confirm it, then try again.",
     sending: "Sending your magic link...",
     submit: "✦ Send Access Link",
-    footerQuestion: "Not a subscriber yet?",
-    footerLink: "Subscribe for $9/month",
+    footerQuestion: "No access yet?",
+    footerLink: "Discover ATB's spiritual work",
     footerBrand: "ATB TAROT — Mystical Readings Portal",
   },
   es: {
@@ -76,11 +78,12 @@ const DICT: Record<
     emailLabel: "Correo electrónico",
     emailPlaceholder: "tu@correo.com",
     errorRate: "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
-    errorGeneric: "Error al enviar el enlace de acceso. Inténtalo de nuevo.",
+    errorGeneric:
+      "No pudimos enviar el enlace. Si acabas de pagar, espera un minuto mientras confirmamos y vuelve a intentarlo.",
     sending: "Enviando enlace mágico...",
     submit: "✦ Enviar Enlace de Acceso",
-    footerQuestion: "¿Aún no tienes tu suscripción?",
-    footerLink: "Suscríbete por $9/mes",
+    footerQuestion: "¿Aún no tienes acceso?",
+    footerLink: "Conoce los trabajos de ATB",
     footerBrand: "ATB TAROT — Portal de Lecturas Místicas",
   },
   de: {
@@ -94,11 +97,12 @@ const DICT: Record<
     emailLabel: "E-Mail",
     emailPlaceholder: "deine@email.de",
     errorRate: "Zu viele Versuche. Bitte warte ein paar Minuten und versuche es erneut.",
-    errorGeneric: "Der Zugangslink konnte nicht gesendet werden. Bitte versuche es noch einmal.",
+    errorGeneric:
+      "Der Zugangslink konnte nicht gesendet werden. Falls du gerade bezahlt hast, warte kurz eine Minute und versuche es dann erneut.",
     sending: "Dein magischer Link ist unterwegs...",
     submit: "✦ Zugangslink senden",
-    footerQuestion: "Noch kein Abo?",
-    footerLink: "Abonniere für 8 €/Monat",
+    footerQuestion: "Noch keinen Zugang?",
+    footerLink: "Entdecke die spirituelle Arbeit von ATB",
     footerBrand: "ATB TAROT — Portal für mystische Lesungen",
   },
   it: {
@@ -112,11 +116,12 @@ const DICT: Record<
     emailLabel: "Email",
     emailPlaceholder: "tua@email.it",
     errorRate: "Troppi tentativi. Aspetta qualche minuto e riprova.",
-    errorGeneric: "Non siamo riusciti a inviare il link di accesso. Riprova.",
+    errorGeneric:
+      "Non siamo riusciti a inviare il link. Se hai appena pagato, aspetta un minuto mentre confermiamo e riprova.",
     sending: "Invio del link magico...",
     submit: "✦ Invia Link di Accesso",
-    footerQuestion: "Non sei ancora abbonato?",
-    footerLink: "Abbonati a 8 €/mese",
+    footerQuestion: "Non hai ancora accesso?",
+    footerLink: "Scopri i lavori spirituali di ATB",
     footerBrand: "ATB TAROT — Portale di Letture Mistiche",
   },
 };
@@ -306,7 +311,9 @@ export default function LoginPage() {
 
               <p className="text-center text-[#aca189] text-base mt-6">
                 {t.footerQuestion}{" "}
-                <Link href="/#assinar" className="text-[#c9a84c] hover:underline">
+                {/* /#assinar apontava pra assinatura DESCONTINUADA — manda pra
+                    home, onde estão os produtos que realmente estão à venda. */}
+                <Link href="/" className="text-[#c9a84c] hover:underline">
                   {t.footerLink}
                 </Link>
               </p>
