@@ -5,32 +5,40 @@
 //    feitiço, mau-olhado, limpeza, benção, proteção, amarração. O ângulo é
 //    tarot como ferramenta de reflexão e autoconhecimento — é o que passa na
 //    política de deturpação do Google Ads.
-//  • Server Component puro: nenhum JavaScript de cliente, nenhuma imagem
-//    pesada. LCP é texto, o que mantém a nota de experiência da landing alta.
-//  • Um único objetivo por dobra: assinar (R$29/mês) ou testar avulso
-//    (3 perguntas, R$19,90). O checkout passa pelo roteador geográfico
-//    /api/checkout/[plan] → Brasil vai para a Kiwify, exterior para o Stripe.
+//  • Server Component com UMA exceção de cliente: os CTAs de checkout usam
+//    <CheckoutCta> (ilha mínima) para registrar o "Iniciar finalização de
+//    compra" no Google Ads antes de navegar. O resto continua server-rendered
+//    e o LCP segue sendo texto.
+//  • Um único objetivo por dobra: pacote de 3 perguntas (R$29, pagamento
+//    único) com upsell de 7 perguntas (R$39,90). ATENÇÃO: as assinaturas
+//    saíram do catálogo em 03/08/2026 — /api/checkout/basic redireciona para
+//    a home SEM vender (por isso os CTAs de "R$29/mês" foram trocados em
+//    14/08/2026; não recolocar assinatura sem reativar o produto).
+//    O checkout passa pelo roteador geográfico /api/checkout/[plan] →
+//    Brasil vai para a Kiwify, exterior para o Stripe.
 //  • Paleta roxo + dourado da ATB, mobile-first (barra fixa de CTA no celular).
 import type { Metadata } from "next";
+import CheckoutCta from "@/app/components/CheckoutCta";
 
 export const metadata: Metadata = {
   title: "Tarot Online Personalizado | Orientação e Autoconhecimento 24h",
   description:
-    "Leitura de tarot personalizada no seu WhatsApp. Orientação pessoal 24 horas por dia para decisões, relacionamentos e autoconhecimento. A partir de R$29/mês.",
+    "Leitura de tarot personalizada no seu WhatsApp. Orientação pessoal 24 horas por dia para decisões, relacionamentos e autoconhecimento. 3 perguntas por R$29, pagamento único.",
   keywords:
     "tarot online, leitura de tarot, tarot personalizado, autoconhecimento, tarot whatsapp, orientação pessoal",
   robots: "index, follow",
   openGraph: {
     title: "Tarot Online Personalizado — Orientação 24h no seu WhatsApp",
     description:
-      "Leituras personalizadas para quem busca clareza e autoconhecimento. A partir de R$29/mês.",
+      "Leituras personalizadas para quem busca clareza e autoconhecimento. 3 perguntas por R$29, pagamento único.",
     type: "website",
   },
 };
 
 // ─── Links ────────────────────────────────────────────────────────────────────
-const CHECKOUT_ASSINATURA = "/api/checkout/basic";
-const CHECKOUT_AVULSO = "/api/checkout/pergunta3";
+// Únicos produtos avulsos À VENDA (ver PRODUTOS_DESCONTINUADOS em lib/pricing).
+const CHECKOUT_3PERGUNTAS = "/api/checkout/pergunta3"; // R$29, pagamento único
+const CHECKOUT_7PERGUNTAS = "/api/checkout/pergunta7"; // R$39,90, pagamento único
 
 // Número do WhatsApp em formato internacional, só dígitos (ex.: 5511999999999).
 // Sem a env var configurada os botões de WhatsApp não são renderizados — link
@@ -74,15 +82,15 @@ const BENEFICIOS: { icon: string; title: string; desc: string }[] = [
   },
   {
     icon: "◎",
-    title: "Cancele quando quiser",
-    desc: "Assinatura sem fidelidade, sem ligação e sem burocracia. Você cancela em um clique.",
+    title: "Sem assinatura",
+    desc: "Pagamento único, sem renovação automática e sem burocracia. Você volta só se quiser.",
   },
 ];
 
 const PASSOS: { title: string; desc: string }[] = [
   {
-    title: "Escolha seu acesso",
-    desc: "Assinatura mensal ou pacote avulso de perguntas. Pagamento por cartão ou Pix, em segundos.",
+    title: "Escolha seu pacote",
+    desc: "3 ou 7 perguntas, pagamento único por cartão ou Pix, em segundos. Sem assinatura.",
   },
   {
     title: "Receba o link por e-mail",
@@ -104,12 +112,12 @@ const FAQ: { q: string; a: string }[] = [
     a: "Minutos. Você faz a pergunta e recebe a leitura completa em seguida, a qualquer hora do dia ou da noite.",
   },
   {
-    q: "Preciso assinar para experimentar?",
-    a: "Não. Existe o pacote de 3 perguntas por R$19,90, pago uma única vez, sem assinatura e sem renovação automática.",
+    q: "Preciso assinar alguma coisa?",
+    a: "Não. Não existe assinatura: você paga uma única vez — 3 perguntas por R$29 ou 7 por R$39,90 — sem renovação automática e sem cobrança surpresa.",
   },
   {
-    q: "Posso cancelar a assinatura?",
-    a: "Sim, quando quiser e sem justificar nada. Não há fidelidade nem multa, e você mantém o acesso até o fim do período já pago.",
+    q: "Preciso instalar algum aplicativo?",
+    a: "Não. A leitura chega no WhatsApp que você já usa e também fica salva no seu portal, aberto direto no navegador.",
   },
   {
     q: "O pagamento é seguro?",
@@ -174,9 +182,9 @@ export default function GoogleAdsLandingPage() {
         </p>
 
         <div className="mx-auto mt-8 flex max-w-md flex-col items-center gap-3 sm:max-w-none sm:flex-row sm:justify-center">
-          <a href={CHECKOUT_ASSINATURA} className={BTN_GOLD}>
-            Começar agora — R$29/mês
-          </a>
+          <CheckoutCta href={CHECKOUT_3PERGUNTAS} className={BTN_GOLD}>
+            Começar agora — 3 perguntas por R$29
+          </CheckoutCta>
           {WHATSAPP_URL ? (
             <a
               href={WHATSAPP_URL}
@@ -187,9 +195,9 @@ export default function GoogleAdsLandingPage() {
               Tirar uma dúvida no WhatsApp
             </a>
           ) : (
-            <a href={CHECKOUT_AVULSO} className={BTN_OUTLINE}>
-              Só 3 perguntas — R$19,90
-            </a>
+            <CheckoutCta href={CHECKOUT_7PERGUNTAS} className={BTN_OUTLINE}>
+              Pacote com 7 perguntas — R$39,90
+            </CheckoutCta>
           )}
         </div>
 
@@ -269,53 +277,53 @@ export default function GoogleAdsLandingPage() {
                 Mais escolhido
               </span>
               <h3 className="font-serif text-xl text-[#e4c97a]">
-                Acompanhamento mensal
+                Pacote de 3 perguntas
               </h3>
               <p className="mt-4 font-serif text-4xl font-bold text-[#ece6f5]">
                 R$29
                 <span className="text-base font-normal text-[#a596c4]">
-                  /mês
+                  {" "}
+                  pagamento único
                 </span>
               </p>
               <ul className="mt-6 space-y-3 text-sm text-[#c9bede]">
-                <li>✦ 5 leituras completas por mês</li>
-                <li>✦ 30 conversas para perguntas do dia a dia</li>
+                <li>✦ 3 leituras completas, uma para cada pergunta</li>
                 <li>✦ Entrega no WhatsApp, 24h por dia</li>
                 <li>✦ Histórico salvo no seu portal</li>
-                <li>✦ Cancele quando quiser</li>
+                <li>✦ Sem assinatura e sem renovação automática</li>
               </ul>
-              <a
-                href={CHECKOUT_ASSINATURA}
+              <CheckoutCta
+                href={CHECKOUT_3PERGUNTAS}
                 className={`${BTN_GOLD} mt-7 sm:w-full`}
               >
-                Assinar por R$29/mês
-              </a>
+                Quero minhas 3 respostas — R$29
+              </CheckoutCta>
             </div>
 
             {/* Avulso — entrada de baixo risco */}
             <div className={`${CARD} p-7`}>
               <h3 className="font-serif text-xl text-[#e4c97a]">
-                Só quero testar
+                Para acompanhar de perto
               </h3>
               <p className="mt-4 font-serif text-4xl font-bold text-[#ece6f5]">
-                R$19,90
+                R$39,90
                 <span className="text-base font-normal text-[#a596c4]">
                   {" "}
                   uma vez
                 </span>
               </p>
               <ul className="mt-6 space-y-3 text-sm text-[#c9bede]">
-                <li>✦ 3 perguntas para usar quando quiser</li>
-                <li>✦ Sem assinatura e sem renovação automática</li>
+                <li>✦ 7 perguntas para usar quando quiser</li>
+                <li>✦ Melhor valor por pergunta</li>
                 <li>✦ Resposta no WhatsApp em minutos</li>
-                <li>✦ Ideal para uma dúvida específica</li>
+                <li>✦ Ideal para uma fase cheia de decisões</li>
               </ul>
-              <a
-                href={CHECKOUT_AVULSO}
+              <CheckoutCta
+                href={CHECKOUT_7PERGUNTAS}
                 className={`${BTN_OUTLINE} mt-7 sm:w-full`}
               >
-                Quero 3 perguntas
-              </a>
+                Quero 7 perguntas — R$39,90
+              </CheckoutCta>
             </div>
           </div>
         </div>
@@ -387,13 +395,13 @@ export default function GoogleAdsLandingPage() {
             Sua próxima decisão pode ser mais leve
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-base leading-relaxed text-[#c9bede]">
-            Comece hoje por R$29/mês, ou faça só 3 perguntas por R$19,90. Você
-            escolhe o ritmo — e cancela quando quiser.
+            Comece hoje com 3 perguntas por R$29, ou leve 7 por R$39,90.
+            Pagamento único, sem assinatura — você escolhe o ritmo.
           </p>
           <div className="mx-auto mt-8 flex max-w-md flex-col items-center gap-3 sm:max-w-none sm:flex-row sm:justify-center">
-            <a href={CHECKOUT_ASSINATURA} className={BTN_GOLD}>
-              Começar agora — R$29/mês
-            </a>
+            <CheckoutCta href={CHECKOUT_3PERGUNTAS} className={BTN_GOLD}>
+              Começar agora — 3 perguntas por R$29
+            </CheckoutCta>
             {WHATSAPP_URL ? (
               <a
                 href={WHATSAPP_URL}
@@ -404,9 +412,9 @@ export default function GoogleAdsLandingPage() {
                 Falar no WhatsApp
               </a>
             ) : (
-              <a href={CHECKOUT_AVULSO} className={BTN_OUTLINE}>
-                Só 3 perguntas — R$19,90
-              </a>
+              <CheckoutCta href={CHECKOUT_7PERGUNTAS} className={BTN_OUTLINE}>
+                Pacote com 7 perguntas — R$39,90
+              </CheckoutCta>
             )}
           </div>
         </div>
@@ -426,12 +434,12 @@ export default function GoogleAdsLandingPage() {
 
       {/* ── BARRA FIXA DE CTA (celular) ───────────────────────────────────── */}
       <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#c9a84c]/30 bg-[#120522]/95 px-4 py-3 backdrop-blur-md sm:hidden">
-        <a
-          href={CHECKOUT_ASSINATURA}
+        <CheckoutCta
+          href={CHECKOUT_3PERGUNTAS}
           className="flex w-full items-center justify-center rounded-xl bg-[linear-gradient(135deg,#c9a84c_0%,#e4c97a_50%,#c9a84c_100%)] px-6 py-3.5 text-base font-bold text-[#1a0b2e]"
         >
-          Começar agora — R$29/mês
-        </a>
+          Começar agora — 3 perguntas por R$29
+        </CheckoutCta>
       </div>
     </main>
   );

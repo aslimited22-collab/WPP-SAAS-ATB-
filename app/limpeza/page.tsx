@@ -9,6 +9,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useUiLocale, type UiLocale } from "@/lib/use-locale";
+import { fireBeginCheckout } from "@/lib/gtag";
 
 type Locale = UiLocale;
 
@@ -247,6 +248,10 @@ export default function LimpezaPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setStatus("loading");
+    // Registra o "Iniciar finalização de compra" no Google Ads no momento do
+    // clique. O POST abaixo leva centenas de ms, então o evento sai antes do
+    // redirect — sem corrida e sem atrasar o comprador.
+    fireBeginCheckout();
     try {
       const res = await fetch("/api/limpeza/order", {
         method: "POST",

@@ -7,6 +7,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import CheckoutCta from "@/app/components/CheckoutCta";
 import { useUiLocale, LOCALE_LABELS, type UiLocale } from "@/lib/use-locale";
 
 const DICT: Record<
@@ -572,18 +573,18 @@ export default function LandingPage() {
                   {t.perguntasDesc}
                 </p>
                 <div className="flex flex-col gap-3">
-                  <a
+                  <CheckoutCta
                     href="/api/checkout/pergunta3"
                     className="text-[#c9a84c] border-2 border-[#c9a84c]/50 px-6 py-4 rounded-xl text-base font-semibold hover:border-[#c9a84c] hover:bg-[#c9a84c]/10 transition-colors text-center"
                   >
                     {t.pergunta3}
-                  </a>
-                  <a
+                  </CheckoutCta>
+                  <CheckoutCta
                     href="/api/checkout/pergunta7"
                     className="btn-gold px-6 py-4 rounded-xl text-base text-center"
                   >
                     {t.pergunta7}
-                  </a>
+                  </CheckoutCta>
                 </div>
               </div>
             </div>
