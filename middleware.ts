@@ -165,12 +165,22 @@ export async function middleware(request: NextRequest) {
 
   // ── Rotas que exigem acesso pago ──────────────────────────────────────────
   // /api/readings: exige assinatura ATIVA (leituras de tarot são do plano).
-  // /dashboard:    assinatura ativa OU créditos de chat avulsos (pergunta1/3/7)
-  //                — quem comprou créditos usa o chat sem assinar.
+  //
+  // /dashboard NÃO tem portão: quem está logado ENTRA. Até 20/08 o dashboard
+  // exigia assinatura ativa OU chat_credits_balance > 0, e isso EXPULSAVA a
+  // cliente que comprou perguntas assim que ela usava a última — 12 das 20
+  // compradoras recentes estavam trancadas do lado de fora, sem conseguir
+  // reler as respostas que PAGARAM, e vendo "você precisa de uma assinatura
+  // ativa — R$29/mês" (assinatura que nunca tiveram e que está descontinuada).
+  // Era a reclamação "não consigo acessar o produto".
+  //
+  // Soltar o portão não dá pergunta grátis: quem cobra o crédito é o servidor
+  // do chat (app/api/chat/route.ts devolve 402 sem saldo), e o painel já tem
+  // a tela "suas perguntas acabaram → comprar mais 3 ou 7" — que ninguém via
+  // porque o middleware barrava antes.
   const needsSubscription = pathname.startsWith("/api/readings");
-  const needsDashboardAccess = pathname.startsWith("/dashboard");
 
-  if (needsSubscription || needsDashboardAccess) {
+  if (needsSubscription) {
     // maybeSingle: não ter assinatura é caso normal (quem só comprou créditos
     // avulsos) — single() devolveria erro PGRST116 a cada requisição.
     const { data: subscription } = await supabase
@@ -181,9 +191,7 @@ export async function middleware(request: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    const hasActiveSubscription = subscription?.status === "active";
-
-    if (needsSubscription && !hasActiveSubscription) {
+    if (subscription?.status !== "active") {
       return NextResponse.json(
         {
           error:
@@ -191,20 +199,6 @@ export async function middleware(request: NextRequest) {
         },
         { status: 403 }
       );
-    }
-
-    if (needsDashboardAccess && !hasActiveSubscription) {
-      const { data: userRow } = await supabase
-        .from("users")
-        .select("chat_credits_balance")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if ((userRow?.chat_credits_balance ?? 0) <= 0) {
-        return redirectPreservingCookies(
-          new URL("/assinatura-inativa", request.url)
-        );
-      }
     }
   }
 

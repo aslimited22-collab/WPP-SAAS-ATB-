@@ -24,8 +24,8 @@ const DICT: Record<
     msg1Before: "Minha querida alma, as cartas indicam que sua jornada com o ",
     brand: "ATB TAROT",
     msg1After: " está pausada no momento.",
-    msg2: "Para acessar suas leituras místicas e ouvir a voz de ATB, você precisa de uma assinatura ativa.",
-    reactivate: "✦ Reativar Minha Assinatura — R$29/mês",
+    msg2: "Escolha um trabalho espiritual com a ATB pra continuar sua jornada — suas conversas anteriores continuam guardadas no seu portal.",
+    reactivate: "✦ Ver os trabalhos da ATB",
     goDashboard: "Ir para o Dashboard",
     logout: "Sair da conta",
     justSubscribed:
@@ -36,8 +36,8 @@ const DICT: Record<
     msg1Before: "Dear soul, the cards reveal that your journey with ",
     brand: "ATB TAROT",
     msg1After: " is paused for now.",
-    msg2: "To access your mystical readings and hear ATB's voice, you need an active subscription.",
-    reactivate: "✦ Reactivate My Subscription — $9/month",
+    msg2: "Choose a spiritual work with ATB to continue your journey — your previous conversations remain saved in your portal.",
+    reactivate: "✦ See ATB's spiritual work",
     goDashboard: "Go to Dashboard",
     logout: "Sign out",
     justSubscribed:
@@ -48,8 +48,8 @@ const DICT: Record<
     msg1Before: "Querida alma, las cartas indican que tu camino con ",
     brand: "ATB TAROT",
     msg1After: " está en pausa por el momento.",
-    msg2: "Para acceder a tus lecturas místicas y escuchar la voz de ATB, necesitas una suscripción activa.",
-    reactivate: "✦ Reactivar Mi Suscripción — $9/mes",
+    msg2: "Elige un trabajo espiritual con ATB para continuar tu camino — tus conversaciones anteriores siguen guardadas en tu portal.",
+    reactivate: "✦ Ver los trabajos de ATB",
     goDashboard: "Ir al Panel",
     logout: "Cerrar sesión",
     justSubscribed:
@@ -60,8 +60,8 @@ const DICT: Record<
     msg1Before: "Meine liebe Seele, die Karten zeigen, dass deine Reise mit ",
     brand: "ATB TAROT",
     msg1After: " gerade pausiert.",
-    msg2: "Um deine mystischen Lesungen zu öffnen und ATBs Stimme zu hören, brauchst du ein aktives Abo.",
-    reactivate: "✦ Mein Abo reaktivieren — 8 €/Monat",
+    msg2: "Wähle eine spirituelle Arbeit mit ATB, um deinen Weg fortzusetzen — deine bisherigen Gespräche bleiben in deinem Portal gespeichert.",
+    reactivate: "✦ Die Arbeiten von ATB ansehen",
     goDashboard: "Zum Dashboard",
     logout: "Abmelden",
     justSubscribed:
@@ -72,8 +72,8 @@ const DICT: Record<
     msg1Before: "Anima cara, le carte rivelano che il tuo cammino con ",
     brand: "ATB TAROT",
     msg1After: " è in pausa per ora.",
-    msg2: "Per accedere alle tue letture mistiche e ascoltare la voce di ATB, hai bisogno di un abbonamento attivo.",
-    reactivate: "✦ Riattiva il Mio Abbonamento — 8 €/mese",
+    msg2: "Scegli un lavoro spirituale con ATB per continuare il tuo cammino — le tue conversazioni precedenti restano salvate nel tuo portale.",
+    reactivate: "✦ Scopri i lavori di ATB",
     goDashboard: "Vai alla Dashboard",
     logout: "Esci",
     justSubscribed:
@@ -130,12 +130,12 @@ export default function AssinaturaInativaPage() {
         </div>
 
         <div className="space-y-4">
-          <a
-            href="/api/checkout/basic"
-            className="btn-gold w-full block py-4 text-lg"
-          >
+          {/* Apontava pra /api/checkout/basic — assinatura DESCONTINUADA: o
+              roteador recusa e devolve pra home, virando beco sem saída.
+              Manda pros trabalhos que estão realmente à venda. */}
+          <Link href="/" className="btn-gold w-full block py-4 text-lg text-center">
             {t.reactivate}
-          </a>
+          </Link>
 
           <div className="flex items-center justify-center gap-4 text-base">
             <Link
