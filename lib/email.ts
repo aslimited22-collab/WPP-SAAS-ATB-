@@ -36,6 +36,7 @@ export function escapeHtml(s: string | null | undefined): string {
 }
 
 export async function sendEmail(opts: {
+  idempotencyKey?: string;
   to: string;
   subject: string;
   html: string;
@@ -53,43 +54,33 @@ export async function sendEmail(opts: {
 
   const from = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
 
-  // Anexos aumentam o payload (PDF ~100KB em base64) — timeout com folga.
-  const controller = new AbortController();
-  const timer = setTimeout(
-    () => controller.abort(),
-    opts.attachments?.length ? 30_000 : 15_000
-  );
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        from,
-        to: opts.to,
-        subject: opts.subject,
-        html: opts.html,
-        ...(opts.bcc ? { bcc: opts.bcc } : {}),
-        ...(opts.attachments?.length ? { attachments: opts.attachments } : {}),
-      }),
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      console.error("[Email] Resend retornou status", res.status);
-      return { ok: false, reason: `resend_http_${res.status}` };
+  const body = JSON.stringify({
+    from, to: opts.to, subject: opts.subject, html: opts.html,
+    ...(opts.bcc ? { bcc: opts.bcc } : {}),
+    ...(opts.attachments?.length ? { attachments: opts.attachments } : {}),
+  });
+  const idempotencyKey = opts.idempotencyKey ?? crypto.randomUUID();
+  let failure = "resend_unavailable";
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let retryDelay = 1000;
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}`, "Idempotency-Key": idempotencyKey },
+        body, signal: AbortSignal.timeout(opts.attachments?.length ? 30_000 : 15_000),
+      });
+      if (res.ok) return { ok: true };
+      failure = `resend_http_${res.status}`;
+      if (res.status !== 429 && res.status < 500) break;
+      retryDelay = Math.max(1000, Number(res.headers.get("retry-after") || 0) * 1000);
+      if (!Number.isFinite(retryDelay) || retryDelay > 5000) break;
+    } catch {
+      failure = "resend_network_error";
     }
-    return { ok: true };
-  } catch (err) {
-    console.error(
-      "[Email] Falha ao enviar:",
-      err instanceof Error ? err.message : ""
-    );
-    return { ok: false, reason: "email_exception" };
-  } finally {
-    clearTimeout(timer);
+    if (attempt === 0) await new Promise(resolve => setTimeout(resolve, retryDelay));
   }
+  console.error("[Email]", failure);
+  return { ok: false, reason: failure };
 }
 
 // Layout base místico (dark + dourado) compartilhado por todos os templates.
@@ -336,7 +327,7 @@ export async function sendNumerologiaDadosEmail(opts: {
 // é disparada manualmente pelo operador depois de realizar o ritual.
 
 function sendTranslatedRitualEmail(
-  opts: { email: string; pedidoUrl: string; servicoSlug?: string },
+  opts: { email: string; pedidoUrl: string; servicoSlug?: string; idempotencyKey?: string },
   locale: AppLocale,
   stage: "confirmed" | "reminder" | "ready",
 ) {
@@ -352,11 +343,12 @@ function sendTranslatedRitualEmail(
     <p>${escapeHtml(storefront[locale].notice)}</p>
     ${opts.servicoSlug === "devocao-a-xango" ? `<p>${escapeHtml(t.legal)}</p>` : ""}
   `);
-  return sendEmail({ to: opts.email, subject: `ATB Tarot — ${title}`, html });
+  return sendEmail({ to: opts.email, subject: `ATB Tarot — ${title}`, html, idempotencyKey: opts.idempotencyKey });
 }
 
 // 1. Confirmação pós-compra — leva ao link único do pedido.
 export async function sendServicoConfirmacaoEmail(opts: {
+  idempotencyKey?: string;
   locale?: AppLocale;
   email: string;
   nome?: string | null;
@@ -396,7 +388,7 @@ export async function sendServicoConfirmacaoEmail(opts: {
     <p style="color:#9a8f78;font-size:13px;line-height:1.6;margin:24px 0 0;">${escapeHtml(RODAPE_LEGAL)}</p>
   `);
 
-  return sendEmail({ to: opts.email, subject: c.assunto, html });
+  return sendEmail({ to: opts.email, subject: c.assunto, html, idempotencyKey: opts.idempotencyKey });
 }
 
 // 2. Lembrete de dados pendentes — disparo manual no painel.

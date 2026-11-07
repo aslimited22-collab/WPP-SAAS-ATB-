@@ -17,9 +17,9 @@ export const metadata: Metadata = {
 };
 
 export default async function ServicosPage({ searchParams }: { searchParams: Promise<{ lang?: string }> }) {
-  const { locale } = await getStoreMarket((await searchParams).lang);
+  const { locale, currency } = await getStoreMarket((await searchParams).lang);
   const supabase = createServiceSupabaseClient();
   const services = await listActiveServices(supabase);
 
-  return <ServicosIndexClient initialLocale={locale} services={services} />;
+  return <ServicosIndexClient initialLocale={locale} currency={currency} services={services} />;
 }

@@ -4,10 +4,11 @@
 // o que você recebe, FAQ e disclaimers. CTA → checkout Kiwify (URL do banco).
 // Público 60+: fonte grande, contraste alto, botões 56px+, foco visível.
 
+import { formatRitualPrice } from "@/lib/ritual-pricing";
+import type { Currency } from "@/lib/pricing";
 import { StoreHeader } from "@/app/components/StoreHeader";
 import { storefront } from "@/content/storefront";
 import { rituals } from "@/content/rituals";
-import { kiwifyCheckoutUrl } from "@/lib/locale";
 import CheckoutCta from "@/app/components/CheckoutCta";
 import Link from "next/link";
 import { useUiLocale, type UiLocale } from "@/lib/use-locale";
@@ -24,24 +25,19 @@ interface ServiceProps {
   kiwify_checkout_url: string | null;
 }
 
-function formatPrecoBRL(centavos: number): string {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(centavos / 100);
-}
-
 export default function ServicoLandingClient({
-  service, initialLocale,
+  service, initialLocale, currency,
 }: {
   initialLocale: UiLocale;
+  currency: Currency;
   service: ServiceProps;
 }) {
   const [locale, setLocale] = useUiLocale(initialLocale);
   const c = SERVICOS_CONTENT[locale][service.slug as ServiceSlug];
   const labels = SERVICOS_LABELS[locale];
-  const preco = formatPrecoBRL(service.preco_centavos);
-  const checkoutUrl = service.kiwify_checkout_url ? kiwifyCheckoutUrl(service.kiwify_checkout_url, locale) : null;
+  const preco = formatRitualPrice(service.slug as ServiceSlug, currency, service.preco_centavos, locale);
+  const checkoutUrl = currency === "brl" && !service.kiwify_checkout_url
+    ? null : `/api/checkout/ritual/${service.slug}?lang=${locale}`;
   const r = rituals[locale];
   const copy = storefront[locale];
   const product = r.services[service.slug as ServiceSlug];
@@ -52,7 +48,7 @@ export default function ServicoLandingClient({
         <Link href={`/servicos?lang=${locale}`}>← {copy.rituals}</Link>
         <h1>{product.title}</h1><p>{product.description}</p>
         <section><h2>{copy.how}</h2><p>{r.instructions}</p></section>
-        <div className="atb-ritual-buy"><strong>{preco}</strong><p>{copy.once} · {r.billing}</p>
+        <div className="atb-ritual-buy"><strong>{preco}</strong><p>{copy.once}</p>
           {checkoutUrl ? <CheckoutCta href={checkoutUrl} className="atb-cta">{r.buy} →</CheckoutCta> : <p>{copy.checkoutError}</p>}
         </div>
         <footer><p>{r.refund}</p><p>{copy.notice}</p>{service.slug === "devocao-a-xango" && <p>{r.legal}</p>}</footer>

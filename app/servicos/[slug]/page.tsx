@@ -38,14 +38,14 @@ export default async function ServicoPage({ params, searchParams }: Props) {
   const content = SERVICOS_CONTENT["pt-BR"][slug as ServiceSlug];
   if (!content) notFound();
 
-  const { locale } = await getStoreMarket((await searchParams).lang);
+  const { locale, currency } = await getStoreMarket((await searchParams).lang);
   const supabase = createServiceSupabaseClient();
   const service = await findServiceBySlug(supabase, slug);
   if (!service || !service.ativo) notFound();
 
   return (
     <ServicoLandingClient
-      initialLocale={locale}
+      initialLocale={locale} currency={currency}
       service={{
         slug: service.slug,
         nome: service.nome,

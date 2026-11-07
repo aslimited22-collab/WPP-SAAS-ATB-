@@ -61,5 +61,6 @@ export async function POST(request: NextRequest) {
   ).replace(/\/$/, "");
 
   const result = await deliverLimpezaOrder(supabase, { orderId, baseUrl });
-  return NextResponse.json({ ok: true, result });
+  const ok = Boolean(result?.generation.ok && result.email.ok);
+  return NextResponse.json({ ok, result }, { status: ok ? 200 : 503 });
 }
