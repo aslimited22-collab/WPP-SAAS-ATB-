@@ -6,8 +6,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createBrowserSupabaseClient } from "@/lib/supabase";
-import { loginSchema, type LoginInput } from "@/lib/validators";
-import { useUiLocale, LOCALE_LABELS, type UiLocale } from "@/lib/use-locale";
+import { isSafeRedirectPath, loginSchema, type LoginInput } from "@/lib/validators";
+import { StoreHeader } from "@/app/components/StoreHeader";
+import { useUiLocale, type UiLocale } from "@/lib/use-locale";
 
 const DICT: Record<
   UiLocale,
@@ -126,6 +127,11 @@ const DICT: Record<
   },
 };
 
+function nextPage() {
+  const next = new URLSearchParams(window.location.search).get("next");
+  return next && isSafeRedirectPath(next) ? next : "/dashboard";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [locale, setLocale] = useUiLocale();
@@ -146,7 +152,7 @@ export default function LoginPage() {
     const supabase = createBrowserSupabaseClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        router.replace("/dashboard");
+        router.replace(nextPage());
       }
     });
   }, [router]);
@@ -156,15 +162,15 @@ export default function LoginPage() {
     setErrorMsg("");
 
     const supabase = createBrowserSupabaseClient();
-    const redirectTo =
-      typeof window !== "undefined"
-        ? `${window.location.origin}/api/auth/callback`
-        : "/api/auth/callback";
+    const redirectTo = new URL("/api/auth/callback", window.location.origin);
+    const destination = new URL(nextPage(), window.location.origin);
+    destination.searchParams.set("lang", locale);
+    redirectTo.searchParams.set("next", destination.pathname + destination.search);
 
     const { error } = await supabase.auth.signInWithOtp({
       email: data.email,
       options: {
-        emailRedirectTo: redirectTo,
+        emailRedirectTo: redirectTo.toString(),
       },
     });
 
@@ -182,34 +188,12 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative min-h-screen bg-mystic-gradient stars-bg flex items-center justify-center px-6">
-      {/* Seletor de idioma */}
-      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center gap-2 sm:gap-3">
-        {(Object.keys(LOCALE_LABELS) as UiLocale[]).map((l) => (
-          <button
-            key={l}
-            onClick={() => setLocale(l)}
-            aria-label={LOCALE_LABELS[l]}
-            className={`px-3 py-2 rounded-lg border text-sm font-semibold transition-colors ${
-              locale === l
-                ? "border-[#c9a84c] text-[#c9a84c] bg-[#c9a84c]/10"
-                : "border-[#3a3a3a] text-[#b5ab97] hover:text-[#c9a84c]"
-            }`}
-          >
-            {l === "pt-BR" ? "PT" : l.toUpperCase()}
-          </button>
-        ))}
-      </div>
-
-      <div className="w-full max-w-md animate-fade-in">
-        {/* Logo */}
-        <div className="text-center mb-10">
-          <Link href="/" className="inline-block">
-            <h1 className="font-serif text-3xl">
-              <span className="gold-gradient-text font-bold">ATB</span>
-              <span className="text-[#e8e0d0] ml-1">TAROT</span>
-            </h1>
-          </Link>
+    <div className="atb-shop atb-funnel atb-login" lang={locale}>
+      <StoreHeader locale={locale} onLocale={setLocale} />
+      <main className="atb-login-main atb-wrap">
+      <div className="w-full max-w-md mx-auto">
+        <div className="text-center mb-8">
+          <h1>{t.formTitle}</h1>
           <p className="text-[#b5ab97] text-base mt-2">
             {t.tagline}
           </p>
@@ -238,9 +222,7 @@ export default function LoginPage() {
             </div>
           ) : (
             <>
-              <h2 className="font-serif text-xl text-[#c9a84c] mb-6 text-center">
-                {t.formTitle}
-              </h2>
+
 
               <form onSubmit={handleSubmit(onSubmit)} noValidate>
                 <div className="mb-5">
@@ -325,6 +307,6 @@ export default function LoginPage() {
           {t.footerBrand}
         </p>
       </div>
-    </main>
+    </main></div>
   );
 }

@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
       data_nascimento: userProfile.data_nascimento,
       signo: userProfile.signo,
       pergunta,
-      locale: normalizeLocale(userProfile.locale),
+      locale: parsed.data.locale ?? normalizeLocale(userProfile.locale),
     });
   } catch (err) {
     // Leitura falhou — estornar o crédito decrementado.

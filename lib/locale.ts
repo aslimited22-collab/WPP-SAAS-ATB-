@@ -31,7 +31,7 @@ export function normalizeLocale(raw: string | null | undefined): AppLocale {
 
 // País do visitante a partir dos headers de edge (Vercel/Cloudflare).
 // Retorna código ISO de 2 letras em maiúsculas, ou "" se indisponível.
-export function detectCountry(req: Request): string {
+export function detectCountry(req: Pick<Request, "headers">): string {
   return (
     req.headers.get("x-vercel-ip-country") ??
     req.headers.get("cf-ipcountry") ??
@@ -41,15 +41,32 @@ export function detectCountry(req: Request): string {
 
 // Brasil → Kiwify; resto do mundo → Stripe.
 // Sem header de país (dev local), cai no Accept-Language.
-export function isBrazilRequest(req: Request): boolean {
+export function isBrazilRequest(req: Pick<Request, "headers">): boolean {
   const country = detectCountry(req);
   if (country) return country === "BR";
-  const lang = (req.headers.get("accept-language") ?? "").toLowerCase();
-  return lang.includes("pt-br") || lang.startsWith("pt");
+  const first = (req.headers.get("accept-language") ?? "").split(",")[0].split(";")[0].trim().toLowerCase();
+  return first === "pt-br" || first === "pt";
 }
 
 // Locale preferido do visitante a partir do Accept-Language.
-export function detectRequestLocale(req: Request): AppLocale {
+export function detectRequestLocale(req: Pick<Request, "headers">): AppLocale {
   const lang = (req.headers.get("accept-language") ?? "").split(",")[0];
   return normalizeLocale(lang);
+}
+
+// Short channel links accept our five storefront languages.
+export function channelLocale(value?: unknown): AppLocale | undefined {
+  if (typeof value !== "string") return undefined;
+  if (value?.toLowerCase() === "pt" || value?.toLowerCase() === "pt-br") return "pt-BR";
+  return APP_LOCALES.find(locale => locale === value?.toLowerCase());
+}
+
+export function kiwifyCheckoutUrl(href: string, locale: AppLocale, orderId?: string | null) {
+  const url = new URL(href);
+  url.searchParams.set("s2", locale);
+  if (orderId) {
+    url.searchParams.set("external_reference", orderId);
+    url.searchParams.set("s1", orderId);
+  }
+  return url.toString();
 }

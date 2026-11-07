@@ -1,3 +1,4 @@
+import { getStoreMarket } from "@/lib/store-market";
 // ─── /servicos — índice dos Trabalhos Espirituais ────────────────────────────
 // Server Component: lê o catálogo (e os PREÇOS) do banco — nunca hardcoded.
 // A renderização com i18n fica no client component.
@@ -15,9 +16,10 @@ export const metadata: Metadata = {
     "Rituais espirituais realizados individualmente com o seu nome: limpeza espiritual, encerramento de ciclos, prosperidade, devoção e harmonização. Serviço de natureza espiritual e religiosa.",
 };
 
-export default async function ServicosPage() {
+export default async function ServicosPage({ searchParams }: { searchParams: Promise<{ lang?: string }> }) {
+  const { locale } = await getStoreMarket((await searchParams).lang);
   const supabase = createServiceSupabaseClient();
   const services = await listActiveServices(supabase);
 
-  return <ServicosIndexClient services={services} />;
+  return <ServicosIndexClient initialLocale={locale} services={services} />;
 }

@@ -6,7 +6,7 @@
 // Os MESMOS produtos existem na Kiwify (Brasil) — as URLs de checkout vêm de
 // env vars NEXT_PUBLIC_KIWIFY_*_URL e o preço cobrado é o do produto na Kiwify.
 
-import type { AppLocale } from "@/lib/locale";
+import { detectCountry, isBrazilRequest, type AppLocale } from "@/lib/locale";
 
 export type ProductId =
   | "basic"
@@ -184,53 +184,31 @@ export function productDisplayName(product: ProductId, locale: AppLocale): strin
   return names[locale][product];
 }
 
-// Moeda + locale a partir do request (somente para o branch internacional).
-// BR nunca chega aqui (vai para a Kiwify), mas se chegar a moeda BRL é
-// detectada pelo roteador e força fallback para a Kiwify.
-export function currencyForRequest(req: Request): {
-  currency: Currency;
-  locale: string;
-} {
-  const country = (req.headers.get("x-vercel-ip-country") ?? "").toUpperCase();
-  const lang = (req.headers.get("accept-language") ?? "").toLowerCase();
+// A moeda depende do país de cobrança da vitrine. O idioma só serve de
+// aproximação quando o provedor de hospedagem não fornece o país.
+const EURO_COUNTRIES = new Set([
+  "AT", "BE", "BG", "HR", "CY", "EE", "FI", "FR", "DE", "GR", "IE", "IT",
+  "LV", "LT", "LU", "MT", "NL", "PT", "SK", "SI", "ES", "AD", "MC", "SM", "VA",
+]);
 
-  if (country === "BR" || lang.includes("pt-br")) {
-    return { currency: "brl", locale: "pt-BR" };
-  }
+export function currencyForRequest(req: Pick<Request, "headers">): { currency: Currency; locale: string } {
+  const country = detectCountry(req);
+  const tag = (req.headers.get("accept-language") ?? "").split(",")[0].split(";")[0].trim();
+  const language = tag.toLowerCase().split("-")[0];
+  const locale = language === "pt" ? "pt-BR" : language || "en";
+  if (isBrazilRequest(req)) return { currency: "brl", locale };
+  const region = country || tag.split("-").slice(1).find(part => /^[a-z]{2}$/i.test(part))?.toUpperCase();
+  if (region === "JP" || (!region && language === "ja")) return { currency: "jpy", locale };
+  const euro = region ? EURO_COUNTRIES.has(region) : ["es", "de", "it", "fr", "nl"].includes(language);
+  return { currency: euro ? "eur" : "usd", locale };
+}
 
-  if (country === "JP" || lang.startsWith("ja")) {
-    return { currency: "jpy", locale: "ja" };
-  }
-
-  const EUROZONE_COUNTRIES = [
-    "ES", "DE", "IT", "FR", "NL", "PT", "AT", "BE", "IE", "FI", "GR",
-  ];
-  const EUROZONE_LANGS = ["es", "de", "it", "fr", "nl", "pt-pt"];
-  const isEurozone =
-    EUROZONE_COUNTRIES.includes(country) ||
-    EUROZONE_LANGS.some((l) => lang.startsWith(l));
-  if (isEurozone) {
-    let locale = "en";
-    if (lang.startsWith("es")) locale = "es";
-    else if (lang.startsWith("de")) locale = "de";
-    else if (lang.startsWith("it")) locale = "it";
-    else if (lang.startsWith("fr")) locale = "fr";
-    // Lusófonos fora do Brasil (Portugal etc.): moeda EUR, idioma português.
-    else if (lang.startsWith("pt")) locale = "pt-BR";
-    return { currency: "eur", locale };
-  }
-
-  // Espanhol fora da zona do euro (México, Argentina, etc.) → USD em espanhol.
-  if (lang.startsWith("es")) {
-    return { currency: "usd", locale: "es" };
-  }
-
-  // Português fora do Brasil/eurozona (Angola, Moçambique...) → USD em PT.
-  if (lang.startsWith("pt")) {
-    return { currency: "usd", locale: "pt-BR" };
-  }
-
-  return { currency: "usd", locale: "en" };
+export function formatProductPrice(product: ProductId, currency: Currency, locale: AppLocale) {
+  const amount = PRODUCT_PRICES[product][currency] / (currency === "jpy" ? 1 : 100);
+  return new Intl.NumberFormat(locale, { style: "currency", currency,
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: currency === "jpy" ? 0 : 2,
+  }).format(amount);
 }
 
 // Locale aceito pelo Stripe Checkout (Stripe não aceita "pt", só "pt-BR").

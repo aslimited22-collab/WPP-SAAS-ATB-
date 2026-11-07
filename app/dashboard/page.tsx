@@ -21,6 +21,7 @@ import {
 } from "@/lib/validators";
 
 interface UserProfile {
+  plan: string | null;
   id: string;
   email: string;
   nome: string | null;
@@ -166,7 +167,7 @@ const DICT: Record<UiLocale, DashboardDict> = {
     chatBuyText:
       "Você não tem mensagens disponíveis. Compre perguntas avulsas para continuar conversando com a ATB:",
     buy1: "1 pergunta",
-    buy3: "3 perguntas — R$29",
+    buy3: "3 perguntas",
     buy7: "7 perguntas",
     chatPlaceholder: "Escreva sua mensagem para a ATB...",
     send: "Enviar",
@@ -264,7 +265,7 @@ const DICT: Record<UiLocale, DashboardDict> = {
     chatBuyText:
       "You have no messages left. Buy single questions to keep talking with ATB:",
     buy1: "1 question",
-    buy3: "3 questions — $6",
+    buy3: "3 questions",
     buy7: "7 questions",
     chatPlaceholder: "Write your message to ATB...",
     send: "Send",
@@ -362,7 +363,7 @@ const DICT: Record<UiLocale, DashboardDict> = {
     chatBuyText:
       "No tienes mensajes disponibles. Compra preguntas sueltas para seguir conversando con ATB:",
     buy1: "1 pregunta",
-    buy3: "3 preguntas — $6",
+    buy3: "3 preguntas",
     buy7: "7 preguntas",
     chatPlaceholder: "Escribe tu mensaje para ATB...",
     send: "Enviar",
@@ -464,7 +465,7 @@ const DICT: Record<UiLocale, DashboardDict> = {
     chatBuyText:
       "Du hast keine Nachrichten mehr. Kaufe einzelne Fragen, um weiter mit ATB zu sprechen:",
     buy1: "1 Frage",
-    buy3: "3 Fragen — 5,50 €",
+    buy3: "3 Fragen",
     buy7: "7 Fragen",
     chatPlaceholder: "Schreibe deine Nachricht an ATB...",
     send: "Senden",
@@ -563,7 +564,7 @@ const DICT: Record<UiLocale, DashboardDict> = {
     chatBuyText:
       "Non hai più messaggi disponibili. Acquista domande singole per continuare a parlare con ATB:",
     buy1: "1 domanda",
-    buy3: "3 domande — 5,50 €",
+    buy3: "3 domande",
     buy7: "7 domande",
     chatPlaceholder: "Scrivi il tuo messaggio per ATB...",
     send: "Invia",
@@ -664,6 +665,7 @@ export default function DashboardPage() {
     resolver: zodResolver(profileSchema),
   });
 
+  const openedPortal = useRef(false);
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -677,6 +679,10 @@ export default function DashboardPage() {
         const profileData = (await profileRes.json()) as { profile: UserProfile | null };
         if (profileData.profile) {
           setProfile(profileData.profile);
+          if (!openedPortal.current) {
+            openedPortal.current = true;
+            if (!["basic", "premium"].includes(profileData.profile.plan ?? "")) setActiveTab("chat");
+          }
           reset({
             nome: profileData.profile.nome ?? "",
             signo: (profileData.profile.signo as ProfileInput["signo"]) ?? undefined,
@@ -715,7 +721,7 @@ export default function DashboardPage() {
       const res = await fetch("/api/readings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pergunta: pergunta.trim() || undefined }),
+        body: JSON.stringify({ pergunta: pergunta.trim() || undefined, locale }),
       });
 
       const data = (await res.json()) as {
@@ -856,7 +862,7 @@ export default function DashboardPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, locale }),
       });
 
       if (!res.ok) {
@@ -1256,13 +1262,13 @@ export default function DashboardPage() {
                   </p>
                   <div className="flex flex-col sm:flex-row gap-2 justify-center">
                     <a
-                      href="/api/checkout/pergunta3"
+                      href={`/api/checkout/pergunta3?lang=${locale}`}
                       className="text-base border border-[#c9a84c]/40 text-[#c9a84c] px-4 py-2 rounded-lg hover:border-[#c9a84c] transition-colors"
                     >
                       {t.buy3}
                     </a>
                     <a
-                      href="/api/checkout/pergunta7"
+                      href={`/api/checkout/pergunta7?lang=${locale}`}
                       className="text-base btn-gold px-4 py-2 rounded-lg"
                     >
                       {t.buy7}

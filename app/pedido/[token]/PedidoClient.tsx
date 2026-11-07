@@ -4,12 +4,16 @@
 // Público 60+: fonte grande, contraste alto, campos e botões generosos,
 // instruções simples e mensagens de erro claras.
 
+import { rituals } from "@/content/rituals";
+import { storefront } from "@/content/storefront";
+import type { AppLocale } from "@/lib/locale";
+import { LOCALE_LABELS } from "@/lib/use-locale";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  DISCLAIMER_GERAL,
-  DIREITO_ARREPENDIMENTO,
-  SERVICOS_CONTENT,
+
+
+
   type ServiceSlug,
 } from "@/content/servicos";
 
@@ -26,6 +30,7 @@ export interface LeituraJson {
 
 export interface PedidoPublico {
   token: string;
+  locale: AppLocale;
   status: string;
   servicoSlug: string | null;
   servicoNome: string;
@@ -36,12 +41,9 @@ export interface PedidoPublico {
   imagemUrl: string | null;
 }
 
-function primeiroNome(nome: string | null): string {
-  const n = (nome ?? "").trim().split(/\s+/)[0];
-  return n || "querida alma";
-}
-
 export default function PedidoClient({ pedido }: { pedido: PedidoPublico }) {
+  const [locale, setLocale] = useState(pedido.locale);
+  const t = rituals[locale];
   const router = useRouter();
   const [nomeCompleto, setNomeCompleto] = useState(
     pedido.nomeCompletoRitual ?? pedido.clienteNome ?? ""
@@ -58,41 +60,36 @@ export default function PedidoClient({ pedido }: { pedido: PedidoPublico }) {
       const res = await fetch(`/api/pedido/${pedido.token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome_completo: nomeCompleto, intencao }),
+        body: JSON.stringify({ nome_completo: nomeCompleto, intencao, locale }),
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
+
       if (!res.ok) {
-        setErro(data.error ?? "Não foi possível enviar. Tente novamente.");
+        setErro(t.retry);
         return;
       }
       router.refresh();
     } catch {
-      setErro("Erro de conexão. Verifique sua internet e tente novamente.");
+      setErro(t.retry);
     } finally {
       setEnviando(false);
     }
   }
 
-  const nome = primeiroNome(pedido.nomeCompletoRitual ?? pedido.clienteNome);
   const l = pedido.leitura;
-  // Aviso legal específico do produto (ex.: o jurídico da Devoção a Xangô).
-  // Determinístico: não depende do texto que a IA gerou.
-  const disclaimerExtra = pedido.servicoSlug
-    ? SERVICOS_CONTENT["pt-BR"][pedido.servicoSlug as ServiceSlug]?.disclaimerExtra
-    : undefined;
+  const disclaimerExtra = pedido.servicoSlug === "devocao-a-xango" ? t.legal : undefined;
   const mostrarFormulario =
     pedido.status !== "entregue" && pedido.status !== "reembolsado";
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] stars-bg">
+    <main lang={locale} className="min-h-screen bg-[#0a0a0a] stars-bg">
       <div className="max-w-2xl mx-auto px-6 py-12">
         <header className="text-center mb-10">
           <div className="text-6xl mb-5 animate-float">🕊️</div>
           <p className="text-[#c9a84c] text-sm tracking-widest uppercase mb-3">
-            Seu trabalho espiritual
+            {t.title}
           </p>
           <h1 className="font-serif text-3xl sm:text-4xl gold-gradient-text font-bold">
-            {pedido.servicoNome}
+            {t.services[pedido.servicoSlug as ServiceSlug]?.title ?? pedido.servicoNome}
           </h1>
         </header>
 
@@ -100,8 +97,7 @@ export default function PedidoClient({ pedido }: { pedido: PedidoPublico }) {
         {pedido.status === "reembolsado" && (
           <div className="mystic-card p-8 text-center">
             <p className="text-[#c2b9a4] text-lg leading-relaxed">
-              Este pedido foi cancelado e reembolsado. Se você acredita que
-              houve um engano, responda o e-mail da sua compra que eu te ajudo.
+              {t.refunded}
             </p>
           </div>
         )}
@@ -121,11 +117,11 @@ export default function PedidoClient({ pedido }: { pedido: PedidoPublico }) {
                 {/* eslint-disable-next-line @next/next/no-img-element -- URL assinada temporária do Storage */}
                 <img
                   src={pedido.imagemUrl}
-                  alt={`Imagem espiritual criada para a intenção de ${nome}`}
+                  alt={t.image}
                   className="w-full rounded-lg"
                 />
                 <figcaption className="text-[#9a8f78] text-sm text-center mt-3">
-                  Imagem espiritual criada para a sua intenção
+                  {t.image}
                 </figcaption>
               </figure>
             )}
@@ -157,7 +153,7 @@ export default function PedidoClient({ pedido }: { pedido: PedidoPublico }) {
             {Array.isArray(l.next_steps) && l.next_steps.length > 0 && (
               <div className="mystic-card p-8 border border-[#c9a84c]/20">
                 <h3 className="font-serif text-xl text-[#c9a84c] mb-4">
-                  ✦ Seus passos
+                  {t.steps}
                 </h3>
                 <ol className="space-y-4">
                   {l.next_steps.map((s, i) => (
@@ -188,31 +184,32 @@ export default function PedidoClient({ pedido }: { pedido: PedidoPublico }) {
 
         {/* ── FORMULÁRIO ──────────────────────────────────────────────── */}
         {mostrarFormulario && (
-          <form onSubmit={enviar} className="mystic-card p-8" noValidate>
+          <form onSubmit={enviar} className="mystic-card p-8">
             <h2 className="font-serif text-2xl text-[#c9a84c] mb-3">
-              {pedido.status === "falhou"
-                ? "Vamos tentar de novo"
-                : "Só faltam dois passos"}
+              {t.intention}
             </h2>
             <p className="text-[#c2b9a4] text-lg leading-relaxed mb-8">
-              Me diga o seu nome completo e o que você deseja trabalhar.
-              Escreva do seu jeito, sem pressa — é a partir das suas palavras
-              que eu preparo o seu trabalho.
+              {t.intro}
             </p>
 
+            <label className="block mb-6">{storefront[locale].language}
+              <select className="input-mystic" value={locale} onChange={event => setLocale(event.target.value as AppLocale)}>
+                {Object.entries(LOCALE_LABELS).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+              </select>
+            </label>
             <div className="mb-6">
               <label
                 htmlFor="nome_completo"
                 className="block text-[#e8e0d0] text-lg mb-2"
               >
-                1. Seu nome completo
+                {t.name}
               </label>
               <input
                 id="nome_completo"
                 type="text"
                 value={nomeCompleto}
                 onChange={(e) => setNomeCompleto(e.target.value.slice(0, 200))}
-                placeholder="Ex.: Maria Aparecida da Silva"
+                minLength={3}
                 className="input-mystic text-lg"
                 autoComplete="name"
                 required
@@ -224,16 +221,14 @@ export default function PedidoClient({ pedido }: { pedido: PedidoPublico }) {
                 htmlFor="intencao"
                 className="block text-[#e8e0d0] text-lg mb-2"
               >
-                2. Sua intenção
+                {t.intention}
               </label>
-              <p className="text-[#9a8f78] text-base mb-2">
-                O que você deseja trabalhar?
-              </p>
+
               <textarea
                 id="intencao"
                 value={intencao}
                 onChange={(e) => setIntencao(e.target.value.slice(0, 4000))}
-                placeholder="Escreva com as suas palavras o que você está sentindo ou vivendo..."
+                minLength={10}
                 className="input-mystic text-lg h-40 resize-none"
                 required
               />
@@ -254,11 +249,11 @@ export default function PedidoClient({ pedido }: { pedido: PedidoPublico }) {
               className="btn-gold w-full py-5 text-lg"
             >
               {enviando
-                ? "Preparando o seu trabalho... pode levar um minuto"
-                : "✦ Preparar o meu trabalho"}
+                ? t.preparing
+                : t.submit}
             </button>
             <p className="text-[#9a8f78] text-sm text-center mt-4">
-              Fica pronto aqui mesmo, nesta página.
+              {t.keep}
             </p>
           </form>
         )}
@@ -271,10 +266,10 @@ export default function PedidoClient({ pedido }: { pedido: PedidoPublico }) {
             </p>
           )}
           <p className="text-[#8a8272] text-sm leading-relaxed">
-            {DISCLAIMER_GERAL}
+            {storefront[locale].notice}
           </p>
           <p className="text-[#8a8272] text-sm leading-relaxed">
-            {DIREITO_ARREPENDIMENTO}
+            {t.refund}
           </p>
         </footer>
       </div>

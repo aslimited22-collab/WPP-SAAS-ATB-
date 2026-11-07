@@ -3,8 +3,11 @@
 // Índice dos Trabalhos Espirituais — cards com preço (do banco) e link.
 // Público 60+: fonte grande, contraste alto, alvos de toque generosos.
 
+import { StoreHeader } from "@/app/components/StoreHeader";
+import { storefront } from "@/content/storefront";
+import { rituals } from "@/content/rituals";
 import Link from "next/link";
-import { useUiLocale } from "@/lib/use-locale";
+import { useUiLocale, type UiLocale } from "@/lib/use-locale";
 import {
   SERVICOS_CONTENT,
   SERVICOS_INDEX_CONTENT,
@@ -20,27 +23,27 @@ function formatPrecoBRL(centavos: number): string {
 }
 
 export default function ServicosIndexClient({
-  services,
+  services, initialLocale,
 }: {
+  initialLocale: UiLocale;
   services: SpiritualService[];
 }) {
-  const [locale] = useUiLocale();
-  const t = SERVICOS_INDEX_CONTENT[locale];
+  const [locale, setLocale] = useUiLocale(initialLocale);
+  const t = SERVICOS_INDEX_CONTENT["pt-BR"];
+  const copy = storefront[locale];
+  const r = rituals[locale];
   const content = SERVICOS_CONTENT[locale];
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] stars-bg">
+    <div className="atb-shop atb-funnel" lang={locale}><StoreHeader locale={locale} onLocale={setLocale} /><main className="atb-services">
       <div className="max-w-4xl mx-auto px-6 py-12">
         {/* ── Hero ─────────────────────────────────────────────────────── */}
         <header className="text-center mb-12">
-          <p className="text-[#c9a84c] text-sm tracking-widest uppercase mb-4">
-            {t.badge}
-          </p>
           <h1 className="font-serif text-4xl sm:text-5xl gold-gradient-text font-bold mb-5">
-            {t.titulo}
+            {copy.rituals}
           </h1>
           <p className="text-[#c2b9a4] text-lg leading-relaxed max-w-2xl mx-auto">
-            {t.subtitulo}
+            {locale === "pt-BR" ? t.subtitulo : r.instructions}
           </p>
         </header>
 
@@ -52,22 +55,22 @@ export default function ServicosIndexClient({
             return (
               <Link
                 key={service.id}
-                href={`/servicos/${service.slug}`}
+                href={`/servicos/${service.slug}?lang=${locale}`}
                 className="mystic-card p-7 block transition-all hover:border-[#c9a84c]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#c9a84c]"
               >
-                <div className="text-4xl mb-4">{c.emoji}</div>
+                <span className="atb-service-star" aria-hidden="true">✦</span>
                 <h2 className="font-serif text-2xl text-[#c9a84c] mb-2">
-                  {service.nome}
+                  {r.services[service.slug as ServiceSlug].title}
                 </h2>
                 <p className="text-[#c2b9a4] text-base leading-relaxed mb-5">
-                  {service.descricao_curta ?? c.subtitulo}
+                  {locale === "pt-BR" ? service.descricao_curta ?? c.subtitulo : r.services[service.slug as ServiceSlug].description}
                 </p>
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <span className="text-[#e8e0d0] font-serif text-2xl font-bold">
                     {formatPrecoBRL(service.preco_centavos)}
                   </span>
                   <span className="btn-gold px-5 py-3 text-base whitespace-nowrap">
-                    {t.verTrabalho} →
+                    {copy.view} →
                   </span>
                 </div>
               </Link>
@@ -78,13 +81,13 @@ export default function ServicosIndexClient({
         {/* ── Disclaimers ──────────────────────────────────────────────── */}
         <footer className="border-t border-[#2a2a2a] pt-8 pb-12 text-center space-y-3">
           <p className="text-[#8a8272] text-sm leading-relaxed max-w-2xl mx-auto">
-            {t.disclaimer}
+            {locale === "pt-BR" ? t.disclaimer : copy.notice}
           </p>
           <p className="text-[#8a8272] text-sm leading-relaxed max-w-2xl mx-auto">
-            {t.arrependimento}
+            {r.refund}
           </p>
         </footer>
       </div>
-    </main>
+    </main></div>
   );
 }

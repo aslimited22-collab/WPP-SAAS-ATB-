@@ -1,3 +1,4 @@
+import { normalizeLocale } from "@/lib/locale";
 // ─── Entrega automática de um Trabalho Espiritual ────────────────────────────
 // Orquestra: gera a leitura (texto) e a imagem simbólica, guarda tudo em
 // service_deliverables (imagem no bucket privado), marca o pedido como
@@ -38,7 +39,7 @@ export async function entregarTrabalho(
   const { data: order } = await supabase
     .from("service_orders")
     .select(
-      "id, status, cliente_nome, cliente_email, nome_completo_ritual, intencao, access_token, spiritual_services(slug, nome)"
+      "id, status, locale, cliente_nome, cliente_email, nome_completo_ritual, intencao, access_token, spiritual_services(slug, nome)"
     )
     .eq("id", opts.orderId)
     .maybeSingle();
@@ -51,6 +52,7 @@ export async function entregarTrabalho(
     return { ...base, erro: "faltam_dados_do_cliente" };
   }
 
+  const locale = normalizeLocale(order.locale);
   const rel = order.spiritual_services as
     | { slug?: string; nome?: string }
     | Array<{ slug?: string; nome?: string }>
@@ -81,6 +83,7 @@ export async function entregarTrabalho(
     let leitura: Awaited<ReturnType<typeof generateWorkReading>>;
     try {
       leitura = await generateWorkReading({
+        locale,
         slug,
         nomeCompleto: order.nome_completo_ritual,
         intencao: order.intencao,
@@ -174,6 +177,8 @@ export async function entregarTrabalho(
   }
 
   const mail = await sendServicoEntregaEmail({
+    locale,
+    servicoSlug: slug,
     email: order.cliente_email,
     nome: order.nome_completo_ritual ?? order.cliente_nome,
     servicoNome,

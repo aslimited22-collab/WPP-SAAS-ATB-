@@ -4,8 +4,13 @@
 // o que você recebe, FAQ e disclaimers. CTA → checkout Kiwify (URL do banco).
 // Público 60+: fonte grande, contraste alto, botões 56px+, foco visível.
 
+import { StoreHeader } from "@/app/components/StoreHeader";
+import { storefront } from "@/content/storefront";
+import { rituals } from "@/content/rituals";
+import { kiwifyCheckoutUrl } from "@/lib/locale";
+import CheckoutCta from "@/app/components/CheckoutCta";
 import Link from "next/link";
-import { useUiLocale } from "@/lib/use-locale";
+import { useUiLocale, type UiLocale } from "@/lib/use-locale";
 import {
   SERVICOS_CONTENT,
   SERVICOS_LABELS,
@@ -27,18 +32,35 @@ function formatPrecoBRL(centavos: number): string {
 }
 
 export default function ServicoLandingClient({
-  service,
+  service, initialLocale,
 }: {
+  initialLocale: UiLocale;
   service: ServiceProps;
 }) {
-  const [locale] = useUiLocale();
+  const [locale, setLocale] = useUiLocale(initialLocale);
   const c = SERVICOS_CONTENT[locale][service.slug as ServiceSlug];
   const labels = SERVICOS_LABELS[locale];
   const preco = formatPrecoBRL(service.preco_centavos);
-  const checkoutUrl = service.kiwify_checkout_url;
+  const checkoutUrl = service.kiwify_checkout_url ? kiwifyCheckoutUrl(service.kiwify_checkout_url, locale) : null;
+  const r = rituals[locale];
+  const copy = storefront[locale];
+  const product = r.services[service.slug as ServiceSlug];
+  if (locale !== "pt-BR") {
+    return <div className="atb-shop atb-funnel" lang={locale}>
+      <StoreHeader locale={locale} onLocale={setLocale} />
+      <main className="atb-ritual-detail atb-wrap">
+        <Link href={`/servicos?lang=${locale}`}>← {copy.rituals}</Link>
+        <h1>{product.title}</h1><p>{product.description}</p>
+        <section><h2>{copy.how}</h2><p>{r.instructions}</p></section>
+        <div className="atb-ritual-buy"><strong>{preco}</strong><p>{copy.once} · {r.billing}</p>
+          {checkoutUrl ? <CheckoutCta href={checkoutUrl} className="atb-cta">{r.buy} →</CheckoutCta> : <p>{copy.checkoutError}</p>}
+        </div>
+        <footer><p>{r.refund}</p><p>{copy.notice}</p>{service.slug === "devocao-a-xango" && <p>{r.legal}</p>}</footer>
+      </main></div>;
+  }
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] stars-bg">
+    <div className="atb-shop atb-funnel" lang={locale}><StoreHeader locale={locale} onLocale={setLocale} /><main className="atb-services">
       <div className="max-w-3xl mx-auto px-6 py-12">
         {/* ── Voltar ───────────────────────────────────────────────────── */}
         <nav className="mb-8">
@@ -52,7 +74,7 @@ export default function ServicoLandingClient({
 
         {/* ── Hero ─────────────────────────────────────────────────────── */}
         <header className="text-center mb-12">
-          <div className="text-6xl mb-5 animate-float">{c.emoji}</div>
+          <span className="atb-service-star" aria-hidden="true">✦</span>
           <p className="text-[#c9a84c] text-sm tracking-widest uppercase mb-4">
             {c.badge}
           </p>
@@ -69,12 +91,12 @@ export default function ServicoLandingClient({
             </div>
             <div className="text-[#9a8f78] text-sm mb-5">{labels.precoUnico}</div>
             {checkoutUrl ? (
-              <a
+              <CheckoutCta
                 href={checkoutUrl}
                 className="btn-gold block w-full px-10 py-5 text-lg text-center"
               >
                 {c.cta}
-              </a>
+              </CheckoutCta>
             ) : (
               <p className="text-[#9a8f78] text-base border border-[#2a2a2a] rounded-lg px-6 py-4">
                 {labels.emBreve}
@@ -127,12 +149,12 @@ export default function ServicoLandingClient({
         {/* ── CTA intermediário ────────────────────────────────────────── */}
         {checkoutUrl && (
           <div className="text-center mb-12">
-            <a
+            <CheckoutCta
               href={checkoutUrl}
               className="btn-gold inline-block px-10 py-5 text-lg"
             >
               {c.cta} — {preco}
-            </a>
+            </CheckoutCta>
           </div>
         )}
 
@@ -176,6 +198,6 @@ export default function ServicoLandingClient({
           </p>
         </footer>
       </div>
-    </main>
+    </main></div>
   );
 }

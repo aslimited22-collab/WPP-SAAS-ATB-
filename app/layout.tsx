@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./storefront.css";
 import GoogleAdsTag from "./components/GoogleAdsTag";
 
 export const metadata: Metadata = {

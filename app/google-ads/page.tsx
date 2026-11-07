@@ -18,27 +18,29 @@
 //    Brasil vai para a Kiwify, exterior para o Stripe.
 //  • Paleta roxo + dourado da ATB, mobile-first (barra fixa de CTA no celular).
 import type { Metadata } from "next";
+import { getStoreMarket } from "@/lib/store-market";
+import { formatProductPrice } from "@/lib/pricing";
 import CheckoutCta from "@/app/components/CheckoutCta";
 
 export const metadata: Metadata = {
   title: "Tarot Online Personalizado | Orientação e Autoconhecimento 24h",
   description:
-    "Leitura de tarot personalizada no seu WhatsApp. Orientação pessoal 24 horas por dia para decisões, relacionamentos e autoconhecimento. 3 perguntas por R$29, pagamento único.",
+    "Leitura de tarot personalizada no chat do seu portal. Orientação pessoal 24 horas por dia para decisões, relacionamentos e autoconhecimento. Pacotes de perguntas com pagamento único.",
   keywords:
-    "tarot online, leitura de tarot, tarot personalizado, autoconhecimento, tarot whatsapp, orientação pessoal",
+    "tarot online, leitura de tarot, tarot personalizado, autoconhecimento, perguntas ao tarot, orientação pessoal",
   robots: "index, follow",
   openGraph: {
-    title: "Tarot Online Personalizado — Orientação 24h no seu WhatsApp",
+    title: "Tarot Online Personalizado — Orientação 24h no chat do seu portal",
     description:
-      "Leituras personalizadas para quem busca clareza e autoconhecimento. 3 perguntas por R$29, pagamento único.",
+      "Leituras personalizadas para quem busca clareza e autoconhecimento. Pacotes de perguntas com pagamento único.",
     type: "website",
   },
 };
 
 // ─── Links ────────────────────────────────────────────────────────────────────
 // Únicos produtos avulsos À VENDA (ver PRODUTOS_DESCONTINUADOS em lib/pricing).
-const CHECKOUT_3PERGUNTAS = "/api/checkout/pergunta3"; // R$29, pagamento único
-const CHECKOUT_7PERGUNTAS = "/api/checkout/pergunta7"; // R$39,90, pagamento único
+const CHECKOUT_3PERGUNTAS = "/api/checkout/pergunta3?lang=pt-BR"; // R$29, pagamento único
+const CHECKOUT_7PERGUNTAS = "/api/checkout/pergunta7?lang=pt-BR"; // R$39,90, pagamento único
 
 // Número do WhatsApp em formato internacional, só dígitos (ex.: 5511999999999).
 // Sem a env var configurada os botões de WhatsApp não são renderizados — link
@@ -67,8 +69,8 @@ const BENEFICIOS: { icon: string; title: string; desc: string }[] = [
   },
   {
     icon: "✆",
-    title: "Direto no seu WhatsApp",
-    desc: "Sem instalar aplicativo e sem aprender site novo. Chega no mesmo lugar onde você já conversa.",
+    title: "Direto no chat do seu portal",
+    desc: "Abra o link de acesso no seu e-mail, entre no portal e faça sua pergunta pelo celular.",
   },
   {
     icon: "◈",
@@ -98,14 +100,14 @@ const PASSOS: { title: string; desc: string }[] = [
   },
   {
     title: "Faça sua pergunta",
-    desc: "Escreva o que está te tirando o sono. A leitura chega no seu WhatsApp, escrita para o seu caso.",
+    desc: "Escreva o que está te tirando o sono. A leitura chega no chat do seu portal, escrita para o seu caso.",
   },
 ];
 
 const FAQ: { q: string; a: string }[] = [
   {
     q: "Como recebo minha leitura?",
-    a: "Pelo WhatsApp, no número que você cadastrar. A leitura também fica salva no seu portal para você reler quando quiser.",
+    a: "No chat do portal, com o e-mail usado na compra. A leitura também fica salva no seu portal para você reler quando quiser.",
   },
   {
     q: "Quanto tempo leva para chegar?",
@@ -113,11 +115,11 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Preciso assinar alguma coisa?",
-    a: "Não. Não existe assinatura: você paga uma única vez — 3 perguntas por R$29 ou 7 por R$39,90 — sem renovação automática e sem cobrança surpresa.",
+    a: "Não. Não existe assinatura: você paga uma única vez — um pacote de 3 ou 7 perguntas — sem renovação automática e sem cobrança surpresa.",
   },
   {
     q: "Preciso instalar algum aplicativo?",
-    a: "Não. A leitura chega no WhatsApp que você já usa e também fica salva no seu portal, aberto direto no navegador.",
+    a: "Não. A leitura chega no portal que você já usa e também fica salva no seu portal, aberto direto no navegador.",
   },
   {
     q: "O pagamento é seguro?",
@@ -140,7 +142,10 @@ const BTN_GOLD =
 const BTN_OUTLINE =
   "inline-flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#c9a84c]/60 px-6 py-4 text-center text-base font-semibold text-[#e4c97a] transition-colors active:scale-[0.98] sm:w-auto";
 
-export default function GoogleAdsLandingPage() {
+export default async function GoogleAdsLandingPage() {
+  const { currency } = await getStoreMarket("pt-BR");
+  const price3 = formatProductPrice("pergunta3", currency, "pt-BR");
+  const price7 = formatProductPrice("pergunta7", currency, "pt-BR");
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,#2a1050_0%,#120522_55%,#0b0318_100%)] pb-28 text-[#ece6f5] sm:pb-0">
       {/* ── TOPO ──────────────────────────────────────────────────────────── */}
@@ -176,14 +181,14 @@ export default function GoogleAdsLandingPage() {
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-[#c9bede] sm:text-lg">
           Leitura de tarot feita para a <strong>sua</strong> pergunta, entregue
-          no seu WhatsApp em minutos. Orientação pessoal disponível 24 horas por
+          no chat do seu portal em minutos. Orientação pessoal disponível 24 horas por
           dia, para quem quer entender melhor o próprio momento e seguir em
           frente com mais confiança.
         </p>
 
         <div className="mx-auto mt-8 flex max-w-md flex-col items-center gap-3 sm:max-w-none sm:flex-row sm:justify-center">
           <CheckoutCta href={CHECKOUT_3PERGUNTAS} className={BTN_GOLD}>
-            Começar agora — 3 perguntas por R$29
+            Começar agora — 3 perguntas por {price3}
           </CheckoutCta>
           {WHATSAPP_URL ? (
             <a
@@ -196,7 +201,7 @@ export default function GoogleAdsLandingPage() {
             </a>
           ) : (
             <CheckoutCta href={CHECKOUT_7PERGUNTAS} className={BTN_OUTLINE}>
-              Pacote com 7 perguntas — R$39,90
+              Pacote com 7 perguntas — {price7}
             </CheckoutCta>
           )}
         </div>
@@ -280,7 +285,7 @@ export default function GoogleAdsLandingPage() {
                 Pacote de 3 perguntas
               </h3>
               <p className="mt-4 font-serif text-4xl font-bold text-[#ece6f5]">
-                R$29
+                {price3}
                 <span className="text-base font-normal text-[#a596c4]">
                   {" "}
                   pagamento único
@@ -288,7 +293,7 @@ export default function GoogleAdsLandingPage() {
               </p>
               <ul className="mt-6 space-y-3 text-sm text-[#c9bede]">
                 <li>✦ 3 leituras completas, uma para cada pergunta</li>
-                <li>✦ Entrega no WhatsApp, 24h por dia</li>
+                <li>✦ Entrega no portal, 24h por dia</li>
                 <li>✦ Histórico salvo no seu portal</li>
                 <li>✦ Sem assinatura e sem renovação automática</li>
               </ul>
@@ -296,7 +301,7 @@ export default function GoogleAdsLandingPage() {
                 href={CHECKOUT_3PERGUNTAS}
                 className={`${BTN_GOLD} mt-7 sm:w-full`}
               >
-                Quero minhas 3 respostas — R$29
+                Quero minhas 3 respostas — {price3}
               </CheckoutCta>
             </div>
 
@@ -306,7 +311,7 @@ export default function GoogleAdsLandingPage() {
                 Para acompanhar de perto
               </h3>
               <p className="mt-4 font-serif text-4xl font-bold text-[#ece6f5]">
-                R$39,90
+                {price7}
                 <span className="text-base font-normal text-[#a596c4]">
                   {" "}
                   uma vez
@@ -315,14 +320,14 @@ export default function GoogleAdsLandingPage() {
               <ul className="mt-6 space-y-3 text-sm text-[#c9bede]">
                 <li>✦ 7 perguntas para usar quando quiser</li>
                 <li>✦ Melhor valor por pergunta</li>
-                <li>✦ Resposta no WhatsApp em minutos</li>
+                <li>✦ Resposta no portal em minutos</li>
                 <li>✦ Ideal para uma fase cheia de decisões</li>
               </ul>
               <CheckoutCta
                 href={CHECKOUT_7PERGUNTAS}
                 className={`${BTN_OUTLINE} mt-7 sm:w-full`}
               >
-                Quero 7 perguntas — R$39,90
+                Quero 7 perguntas — {price7}
               </CheckoutCta>
             </div>
           </div>
@@ -395,12 +400,12 @@ export default function GoogleAdsLandingPage() {
             Sua próxima decisão pode ser mais leve
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-base leading-relaxed text-[#c9bede]">
-            Comece hoje com 3 perguntas por R$29, ou leve 7 por R$39,90.
+            Comece hoje com 3 perguntas por {price3}, ou leve 7 por {price7}.
             Pagamento único, sem assinatura — você escolhe o ritmo.
           </p>
           <div className="mx-auto mt-8 flex max-w-md flex-col items-center gap-3 sm:max-w-none sm:flex-row sm:justify-center">
             <CheckoutCta href={CHECKOUT_3PERGUNTAS} className={BTN_GOLD}>
-              Começar agora — 3 perguntas por R$29
+              Começar agora — 3 perguntas por {price3}
             </CheckoutCta>
             {WHATSAPP_URL ? (
               <a
@@ -413,7 +418,7 @@ export default function GoogleAdsLandingPage() {
               </a>
             ) : (
               <CheckoutCta href={CHECKOUT_7PERGUNTAS} className={BTN_OUTLINE}>
-                Pacote com 7 perguntas — R$39,90
+                Pacote com 7 perguntas — {price7}
               </CheckoutCta>
             )}
           </div>
@@ -438,7 +443,7 @@ export default function GoogleAdsLandingPage() {
           href={CHECKOUT_3PERGUNTAS}
           className="flex w-full items-center justify-center rounded-xl bg-[linear-gradient(135deg,#c9a84c_0%,#e4c97a_50%,#c9a84c_100%)] px-6 py-3.5 text-base font-bold text-[#1a0b2e]"
         >
-          Começar agora — 3 perguntas por R$29
+          Começar agora — 3 perguntas por {price3}
         </CheckoutCta>
       </div>
     </main>

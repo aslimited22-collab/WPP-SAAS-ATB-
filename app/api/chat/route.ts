@@ -17,7 +17,7 @@ import {
   currentMonthKey,
   type UserPlan,
 } from "@/lib/plans";
-import { normalizeLocale } from "@/lib/locale";
+import { channelLocale, normalizeLocale } from "@/lib/locale";
 import { checkRateLimit } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       { status: 413 }
     );
   }
-  let body: { message?: unknown };
+  let body: { message?: unknown; locale?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
 
   const creditsBalance = profile?.chat_credits_balance ?? 0;
   const usingCredits = creditsBalance > 0;
-  const locale = normalizeLocale(profile?.locale);
+  const locale = channelLocale(body.locale) ?? normalizeLocale(profile?.locale);
 
   let plan: UserPlan | "free" = "free";
   if (profile?.plan === "basic" || profile?.plan === "premium") {

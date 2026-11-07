@@ -87,6 +87,7 @@ export type GuiaViciosInput = z.infer<typeof guiaViciosSchema>;
 
 // ─── Solicitação de leitura ───────────────────────────────────────────────────
 export const readingRequestSchema = z.object({
+  locale: z.enum(["pt-BR", "en", "es", "de", "it"]).optional(),
   pergunta: z
     .string()
     .max(500, "Pergunta deve ter no máximo 500 caracteres")
@@ -198,6 +199,7 @@ export type LimpezaPersonalizarInput = z.infer<typeof limpezaPersonalizarSchema>
 // Texto livre (a intenção é pessoal) — apenas limpamos caracteres de controle
 // e limitamos o tamanho. O operador revisa antes de realizar o ritual.
 export const servicoPedidoFormSchema = z.object({
+  locale: z.enum(["pt-BR", "en", "es", "de", "it"]).optional(),
   nome_completo: z
     .string()
     .min(3, "Escreva seu nome completo")
