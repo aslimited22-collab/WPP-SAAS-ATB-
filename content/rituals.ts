@@ -24,7 +24,6 @@ type RitualCopy = {
   legal: string;
   fallback: string;
   buy: string;
-  billing: string;
 };
 
 export const rituals: Record<AppLocale, RitualCopy> = {
@@ -67,8 +66,7 @@ export const rituals: Record<AppLocale, RitualCopy> = {
     "refund": "Você tem até 7 dias corridos após a compra para solicitar o reembolso integral, conforme o art. 49 do Código de Defesa do Consumidor.",
     "legal": "Serviço espiritual e devocional. Questões jurídicas devem ser tratadas com um advogado.",
     "fallback": "Reserve um instante de silêncio e reflita sobre a intenção que você escreveu.",
-    "buy": "Receber minha leitura",
-    "billing": "Pagamento em reais brasileiros (BRL)."
+    "buy": "Receber minha leitura"
   },
   "en": {
     "services": {
@@ -109,8 +107,7 @@ export const rituals: Record<AppLocale, RitualCopy> = {
     "refund": "You may request a full refund within seven calendar days of purchase under Article 49 of Brazil’s Consumer Protection Code.",
     "legal": "This is a devotional service. Consult a lawyer for legal advice.",
     "fallback": "Set aside a quiet moment to reflect on the intention you shared.",
-    "buy": "Order my reading",
-    "billing": "Payment in Brazilian reais (BRL)."
+    "buy": "Order my reading"
   },
   "es": {
     "services": {
@@ -151,8 +148,7 @@ export const rituals: Record<AppLocale, RitualCopy> = {
     "refund": "Puedes solicitar un reembolso completo en los siete días naturales posteriores a la compra según el artículo 49 del Código de Defensa del Consumidor de Brasil.",
     "legal": "Este es un servicio devocional. Consulta a un abogado para recibir asesoramiento jurídico.",
     "fallback": "Busca un momento de calma para reflexionar sobre la intención que compartiste.",
-    "buy": "Pedir mi lectura",
-    "billing": "Pago en reales brasileños (BRL)."
+    "buy": "Pedir mi lectura"
   },
   "de": {
     "services": {
@@ -193,8 +189,7 @@ export const rituals: Record<AppLocale, RitualCopy> = {
     "refund": "Nach Artikel 49 des brasilianischen Verbraucherschutzgesetzes kannst du innerhalb von sieben Kalendertagen nach dem Kauf eine vollständige Erstattung beantragen.",
     "legal": "Dieses Angebot ist spiritueller Natur. Bei rechtlichen Fragen wende dich an eine Rechtsanwältin oder einen Rechtsanwalt.",
     "fallback": "Nimm dir einen ruhigen Moment, um über dein Anliegen nachzudenken.",
-    "buy": "Meine Deutung bestellen",
-    "billing": "Abrechnung in brasilianischen Real (BRL)."
+    "buy": "Meine Deutung bestellen"
   },
   "it": {
     "services": {
@@ -235,7 +230,6 @@ export const rituals: Record<AppLocale, RitualCopy> = {
     "refund": "Puoi richiedere un rimborso completo entro sette giorni di calendario dall’acquisto, ai sensi dell’articolo 49 del Codice di difesa del consumatore brasiliano.",
     "legal": "Questo è un servizio devozionale. Per consulenza legale rivolgiti a un avvocato.",
     "fallback": "Prenditi un momento di calma per riflettere sull’intenzione che hai condiviso.",
-    "buy": "Ordina la mia lettura",
-    "billing": "Pagamento in real brasiliani (BRL)."
+    "buy": "Ordina la mia lettura"
   }
 };

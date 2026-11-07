@@ -22,6 +22,7 @@ import {
   type PlanKey,
 } from "@/lib/plans";
 import { getStripe } from "@/lib/stripe";
+import { deliverStripeRitual, reverseStripeRitual } from "@/lib/stripe-ritual";
 import { normalizeLocale, type AppLocale } from "@/lib/locale";
 import { isValidProduct } from "@/lib/pricing";
 import { deliverLimpezaOrder } from "@/lib/delivery";
@@ -211,6 +212,10 @@ async function handlePaidCheckout(opts: {
   baseUrl: string;
 }): Promise<NextResponse> {
   const { supabase, stripe, session, eventId, ipAddress, baseUrl } = opts;
+  if (session.metadata?.plan === "ritual") {
+    await deliverStripeRitual(supabase, stripe, session, baseUrl);
+    return NextResponse.json({ ok: true, plan: "ritual" });
+  }
 
   const email = (
     session.customer_details?.email ??
@@ -1022,6 +1027,18 @@ export async function POST(request: NextRequest) {
 
     case "charge.refunded": {
       const charge = event.data.object as Stripe.Charge;
+      if (charge.metadata?.plan === "ritual") {
+        const intent = idFromExpandable(charge.payment_intent);
+        if (charge.refunded && intent) {
+          try {
+            await reverseStripeRitual(supabase, intent);
+          } catch {
+            await releaseEvent(supabase, event.id);
+            return NextResponse.json({ error: "Ritual refund pending" }, { status: 503 });
+          }
+        }
+        break;
+      }
       // O evento também dispara em reembolso PARCIAL — só revogamos quando a
       // cobrança foi integralmente devolvida (charge.refunded === true).
       if (!charge.refunded) {
@@ -1065,11 +1082,22 @@ export async function POST(request: NextRequest) {
       if (chargeId) {
         try {
           const charge = await stripe.charges.retrieve(chargeId);
+          if (charge.metadata?.plan === "ritual" && paymentIntentId) {
+            try {
+              await reverseStripeRitual(supabase, paymentIntentId);
+            } catch {
+              await releaseEvent(supabase, event.id);
+              return NextResponse.json({ error: "Ritual dispute pending" }, { status: 503 });
+            }
+            break;
+          }
           disputeCustomerId = idFromExpandable(
             charge.customer as string | { id: string } | null
           );
         } catch {
-          // segue sem customer — revogação por payment_intent ainda funciona
+          // Stripe retries once the charge can be classified; do not revoke an unrelated product.
+          await releaseEvent(supabase, event.id);
+          return NextResponse.json({ error: "Charge lookup pending" }, { status: 503 });
         }
       }
       await revokeByPaymentIntent(supabase, {

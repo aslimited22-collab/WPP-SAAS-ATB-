@@ -3,6 +3,8 @@
 // Índice dos Trabalhos Espirituais — cards com preço (do banco) e link.
 // Público 60+: fonte grande, contraste alto, alvos de toque generosos.
 
+import { formatRitualPrice } from "@/lib/ritual-pricing";
+import type { Currency } from "@/lib/pricing";
 import { StoreHeader } from "@/app/components/StoreHeader";
 import { storefront } from "@/content/storefront";
 import { rituals } from "@/content/rituals";
@@ -15,17 +17,11 @@ import {
 } from "@/content/servicos";
 import type { SpiritualService } from "@/lib/spiritual-services";
 
-function formatPrecoBRL(centavos: number): string {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(centavos / 100);
-}
-
 export default function ServicosIndexClient({
-  services, initialLocale,
+  services, initialLocale, currency,
 }: {
   initialLocale: UiLocale;
+  currency: Currency;
   services: SpiritualService[];
 }) {
   const [locale, setLocale] = useUiLocale(initialLocale);
@@ -67,7 +63,7 @@ export default function ServicosIndexClient({
                 </p>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <span className="text-[#e8e0d0] font-serif text-2xl font-bold">
-                    {formatPrecoBRL(service.preco_centavos)}
+                    {formatRitualPrice(service.slug as ServiceSlug, currency, service.preco_centavos, locale)}
                   </span>
                   <span className="btn-gold px-5 py-3 text-base whitespace-nowrap">
                     {copy.view} →

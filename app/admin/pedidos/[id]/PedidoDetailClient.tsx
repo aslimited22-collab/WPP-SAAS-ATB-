@@ -18,7 +18,9 @@ export interface PedidoData {
   nomeCompletoRitual: string | null;
   intencao: string | null;
   formRespondidoEm: string | null;
-  kiwifyOrderId: string;
+  paymentId: string;
+  provider: string;
+  currency: string;
   amountCents: number | null;
   pagoEm: string | null;
   entregueEm: string | null;
@@ -112,13 +114,13 @@ export default function PedidoDetailClient({ pedido }: { pedido: PedidoData }) {
             {pedido.clienteTelefone ?? "(não informado)"}
           </p>
           <p>
-            <span className="text-[#888]">Pedido Kiwify:</span>{" "}
-            {pedido.kiwifyOrderId}
+            <span className="text-[#888]">Pedido {pedido.provider}:</span>{" "}
+            {pedido.paymentId}
           </p>
           <p>
             <span className="text-[#888]">Valor:</span>{" "}
             {pedido.amountCents != null
-              ? `R$ ${(pedido.amountCents / 100).toFixed(2)}`
+              ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: pedido.currency }).format(pedido.amountCents / 100)
               : "—"}
           </p>
           <p>

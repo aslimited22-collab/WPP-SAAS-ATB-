@@ -96,7 +96,7 @@ export async function entregarTrabalho(
       await supabase
         .from("service_orders")
         .update({ status: "falhou", updated_at: new Date().toISOString() })
-        .eq("id", order.id);
+        .eq("id", order.id).neq("status", "reembolsado").neq("status", "entregue");
       return { ...base, erro: "geracao_texto_falhou" };
     }
 
@@ -161,6 +161,7 @@ export async function entregarTrabalho(
     .update({ status: "entregue", entregue_em: nowIso, updated_at: nowIso })
     .eq("id", order.id)
     .neq("status", "entregue")
+    .neq("status", "reembolsado")
     .select("id");
 
   const acabouDeEntregar = (marcados ?? []).length > 0;

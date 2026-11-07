@@ -1,3 +1,6 @@
+import { rituals } from "@/content/rituals";
+import { storefront } from "@/content/storefront";
+import { isRitualSlug } from "@/lib/ritual-pricing";
 import { getStoreMarket } from "@/lib/store-market";
 // Página de obrigado pós-compra — usada pelos dois checkouts:
 //   Kiwify (BR): URL de obrigado configurada no produto → sempre pt-BR
@@ -56,14 +59,16 @@ export default async function ObrigadoPage({
 }: {
   searchParams: Promise<{
     lang?: string;
+    ritual?: string;
     plan?: string;
     cur?: string;
     sid?: string;
   }>;
 }) {
-  const { lang, plan, cur, sid } = await searchParams;
+  const { lang, plan, cur, sid, ritual } = await searchParams;
   const { locale } = await getStoreMarket(lang);
   const t = COPY[locale];
+  const ritualOrder = isRitualSlug(ritual);
 
   // ── Conversão do Google Ads ────────────────────────────────────────────────
   // O Stripe manda plan+cur+sid no success_url. A Kiwify (BR) usa a URL de
@@ -92,7 +97,7 @@ export default async function ObrigadoPage({
       <div className="w-full max-w-lg text-center">
         <div className="text-6xl mb-6 animate-float">🌟</div>
         <h1 className="font-serif text-4xl gold-gradient-text mb-4">
-          {t.title}
+          {ritualOrder ? rituals[locale].title : t.title}
         </h1>
         <div className="divider-gold mb-8" />
         <div className="mystic-card p-8 border border-[#c9a84c]/30 mb-8">
@@ -100,13 +105,13 @@ export default async function ObrigadoPage({
             {t.body1}{" "}
             <strong className="text-[#c9a84c]">ATB TAROT</strong>.
           </p>
-          <p className="text-[#c2b9a4] text-sm leading-relaxed">{t.body2}</p>
+          <p className="text-[#c2b9a4] text-sm leading-relaxed">{ritualOrder ? rituals[locale].instructions : t.body2}</p>
         </div>
         <Link
-          href="/login"
+          href={ritualOrder ? `/?lang=${locale}` : `/login?lang=${locale}`}
           className="btn-gold inline-block px-10 py-4 text-base"
         >
-          {t.cta}
+          {ritualOrder ? storefront[locale].nav : t.cta}
         </Link>
       </div>
     </main>

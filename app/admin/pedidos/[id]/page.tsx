@@ -27,7 +27,7 @@ export default async function AdminPedidoDetailPage({
   const { data: order } = await supabase
     .from("service_orders")
     .select(
-      "id, status, cliente_nome, cliente_email, cliente_telefone, access_token, nome_completo_ritual, intencao, form_respondido_em, leitura_json, kiwify_order_id, amount_cents, pago_em, entregue_em, reembolsado_em, lembrete_enviado_em, confirmacao_email_ok, created_at, spiritual_services(nome, slug)"
+      "id, status, cliente_nome, cliente_email, cliente_telefone, access_token, nome_completo_ritual, intencao, form_respondido_em, leitura_json, kiwify_order_id, stripe_payment_intent, currency, amount_cents, pago_em, entregue_em, reembolsado_em, lembrete_enviado_em, confirmacao_email_ok, created_at, spiritual_services(nome, slug)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -52,7 +52,9 @@ export default async function AdminPedidoDetailPage({
     nomeCompletoRitual: order.nome_completo_ritual,
     intencao: order.intencao,
     formRespondidoEm: order.form_respondido_em,
-    kiwifyOrderId: order.kiwify_order_id,
+    paymentId: order.kiwify_order_id ?? order.stripe_payment_intent,
+    provider: order.stripe_payment_intent ? "Stripe" : "Kiwify",
+    currency: order.currency,
     amountCents: order.amount_cents,
     pagoEm: order.pago_em,
     entregueEm: order.entregue_em,

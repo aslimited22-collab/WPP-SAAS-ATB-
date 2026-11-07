@@ -90,14 +90,22 @@ export async function deliverLimpezaOrder(
         pergunta: order.pergunta ?? "",
         locale,
       });
-      const { error: insErr } = await supabase.from("limpeza_readings").insert({
+      const row = {
         order_id: order.id,
         full_json: reading.json,
         full_text: reading.text,
-      });
-      generation = insErr
-        ? { ok: false, reason: `insert: ${insErr.message}` }
-        : { ok: true };
+      };
+      // Keep the same generated reading across temporary clock or transport errors.
+      for (const delay of [0, 1500, 4000]) {
+        if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+        const saved = await supabase.from("limpeza_readings")
+          .upsert(row, { onConflict: "order_id", ignoreDuplicates: true });
+        if (!saved.error) { generation = { ok: true }; break; }
+        generation = { ok: false, reason: `insert: ${saved.error.message}` };
+        const transient = saved.status === 0 || saved.status === 429 || saved.status >= 500
+          || /issued at future|not yet valid/i.test(saved.error.message);
+        if (!transient) break;
+      }
     }
   } catch (err) {
     generation = {

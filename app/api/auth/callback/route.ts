@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { isSafeRedirectPath } from "@/lib/validators";
+import { channelLocale } from "@/lib/locale";
 
 // Callback de autenticação. Dois fluxos:
 //   1. ?code=          → magic link iniciado no /login (PKCE, exchangeCodeForSession)
@@ -33,5 +34,11 @@ export async function GET(request: NextRequest) {
   }
 
   // Em caso de erro, redirecionar para login
-  return NextResponse.redirect(`${origin}/login?error=auth`);
+  const login = new URL("/login", origin);
+  login.searchParams.set("error", "auth");
+  login.searchParams.set("next", next);
+  const lang = channelLocale(new URL(next, origin).searchParams.get("lang"))
+    ?? channelLocale(request.cookies.get("atb_locale")?.value);
+  if (lang) login.searchParams.set("lang", lang);
+  return NextResponse.redirect(login);
 }
