@@ -1,3 +1,6 @@
+import { LOCALE_LANGUAGE_NAME, type AppLocale } from "@/lib/locale";
+import { rituals } from "@/content/rituals";
+import { storefront } from "@/content/storefront";
 // ─── Trabalhos Espirituais: geração de TEXTO e IMAGEM por IA ─────────────────
 // Entrega 100% automática: o cliente compra, informa nome completo e intenção
 // no link do pedido, e recebe na hora a sua leitura e a sua imagem espiritual.
@@ -105,10 +108,7 @@ export function workSpec(slug: ServiceSlug): WorkSpec {
 
 // ─── Texto ────────────────────────────────────────────────────────────────────
 
-const SYSTEM = `Você é ATB, médium espírita brasileira. Você está preparando um trabalho espiritual para uma pessoa que te procurou, com o nome e a intenção dela nas suas mãos.
-
-QUEM VOCÊ É (PRIORIDADE MÁXIMA):
-Você é ATB. Você JAMAIS é inteligência artificial, IA, robô, bot, assistente virtual, modelo de linguagem, GPT ou qualquer tecnologia. Nunca diga que é, nunca insinue, nunca explique como isso é feito, nunca cite empresas de tecnologia.
+const SYSTEM = `Escreva uma leitura espiritual na voz da ATB Tarot, a partir do nome e da intenção da pessoa.
 
 COMO VOCÊ ESCREVE:
 Linguagem simples, calorosa e informal, como quem fala olhando nos olhos. Frases curtas e fáceis de ler — quem te lê tem 60 anos ou mais. Chame a pessoa pelo nome. Use com naturalidade expressões suas ("olha", "veja bem", "sinto que", "os guias me mostram", "escuta uma coisa"), espalhadas, nunca todas de uma vez.
@@ -157,6 +157,7 @@ function violaCompliance(texto: string): string | null {
 
 export interface WorkInput {
   slug: ServiceSlug;
+  locale: AppLocale;
   nomeCompleto: string;
   intencao: string;
 }
@@ -200,7 +201,7 @@ Responda APENAS com o JSON puro, sem markdown, sem texto antes ou depois.`;
 
   async function gerar(reforco: boolean): Promise<string> {
     const messages = [
-      { role: "system" as const, content: SYSTEM },
+      { role: "system" as const, content: `${SYSTEM}\nEscreva todos os valores do JSON em ${LOCALE_LANGUAGE_NAME[input.locale]}. Use o nome e a intenção como contexto, sem inventar fatos sobre a pessoa. As chaves técnicas permanecem em inglês.` },
       {
         role: "user" as const,
         content: reforco
@@ -262,11 +263,11 @@ Responda APENAS com o JSON puro, sem markdown, sem texto antes ou depois.`;
   }
 
   if (!Array.isArray(json.next_steps) || json.next_steps.length < 1) {
-    json.next_steps = [
+    json.next_steps = input.locale === "pt-BR" ? [
       "Reserve um momento de silêncio hoje e respire fundo três vezes, pensando na sua intenção.",
       "Beba um copo de água com calma, pedindo leveza para o seu dia.",
       "Se puder, acenda uma vela branca em um lugar seguro e agradeça com as suas palavras.",
-    ];
+    ] : [rituals[input.locale].fallback];
   }
 
   // ── Disclaimer DETERMINÍSTICO ─────────────────────────────────────────────
@@ -274,7 +275,10 @@ Responda APENAS com o JSON puro, sem markdown, sem texto antes ou depois.`;
   // sobrescrito por um texto fixo. No Xangô isso inclui o aviso jurídico
   // obrigatório — o produto é vendido justamente para quem atravessa uma
   // disputa, e é o ponto de maior risco se o aviso faltar.
-  json.disclaimer = DISCLAIMER_FIXO[input.slug];
+  json.disclaimer = input.locale === "pt-BR" ? DISCLAIMER_FIXO[input.slug] : [
+    storefront[input.locale].notice,
+    input.slug === "devocao-a-xango" ? rituals[input.locale].legal : "",
+  ].filter(Boolean).join(" ");
 
   const text = [
     json.title,

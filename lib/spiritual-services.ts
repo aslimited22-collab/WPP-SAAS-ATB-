@@ -1,3 +1,4 @@
+import type { AppLocale } from "@/lib/locale";
 // ─── Trabalhos Espirituais: catálogo, pedidos e confirmação pós-compra ───────
 // Entrega 100% AUTOMÁTICA, com E-MAIL como canal único (sem WhatsApp):
 // compra → e-mail de confirmação com o LINK ÚNICO do pedido (/pedido/<token>)
@@ -183,6 +184,7 @@ export async function processarCompraServico(
   supabase: ServiceClient,
   opts: {
     service: SpiritualService;
+    locale: AppLocale;
     kiwifyOrderId: string;
     email: string;
     nome: string | null;
@@ -207,7 +209,7 @@ export async function processarCompraServico(
         status: "pago",
         kiwify_order_id: opts.kiwifyOrderId,
         amount_cents: opts.amountCents,
-        locale: "pt-BR",
+        locale: opts.locale,
         pago_em: nowIso,
       },
       { onConflict: "kiwify_order_id", ignoreDuplicates: true }
@@ -229,12 +231,13 @@ export async function processarCompraServico(
   // ── E-mail de confirmação com o link único do pedido ──────────────────────
   // O acolhimento personalizado (DeepSeek) é opcional: se falhar ou demorar,
   // o template usa o parágrafo estático.
-  const acolhimento = await gerarAcolhimento({
+  const acolhimento = opts.locale === "pt-BR" ? await gerarAcolhimento({
     nome: opts.nome,
     servicoNome: opts.service.nome,
-  });
+  }) : null;
 
   const emailResult = await sendServicoConfirmacaoEmail({
+    locale: opts.locale,
     email: opts.email,
     nome: opts.nome,
     servicoNome: opts.service.nome,

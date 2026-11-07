@@ -1,3 +1,4 @@
+import { normalizeLocale } from "@/lib/locale";
 // ─── /pedido/[token] — página única do cliente ───────────────────────────────
 // UM link para a jornada inteira (ideal para o público 60+: nada de app,
 // nada de login, sempre o mesmo endereço):
@@ -39,7 +40,7 @@ export default async function PedidoPage({
   const { data: order } = await supabase
     .from("service_orders")
     .select(
-      "id, status, cliente_nome, nome_completo_ritual, intencao, form_respondido_em, leitura_json, spiritual_services(nome, slug)"
+      "id, status, locale, cliente_nome, nome_completo_ritual, intencao, form_respondido_em, leitura_json, spiritual_services(nome, slug)"
     )
     .eq("access_token", token)
     .maybeSingle();
@@ -72,6 +73,7 @@ export default async function PedidoPage({
 
   const pedido: PedidoPublico = {
     token,
+    locale: normalizeLocale(order.locale),
     status: order.status,
     servicoSlug: (relRow?.slug as string | undefined) ?? null,
     servicoNome: servicoNomeDe(order.spiritual_services),

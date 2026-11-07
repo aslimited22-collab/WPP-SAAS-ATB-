@@ -1,3 +1,6 @@
+import { rituals } from "@/content/rituals";
+import type { ServiceSlug } from "@/content/servicos";
+import { storefront } from "@/content/storefront";
 // ─── E-mails transacionais via Resend ─────────────────────────────────────────
 // Usa a API HTTP do Resend diretamente (sem dependência npm).
 // Todos os envios são fail-soft: falha de e-mail nunca derruba um webhook —
@@ -177,13 +180,13 @@ export async function sendAccessEmail(
   const copy = ACCESS_COPY[opts.locale];
   const firstName =
     escapeHtml((opts.nome ?? "").trim().split(/\s+/)[0]) ||
-    (opts.locale === "en" ? "dear soul" : opts.locale === "es" ? "querida alma" : "querida alma");
+    ({ en: "dear soul", es: "querida alma", de: "liebe Seele", it: "anima cara", "pt-BR": "querida alma" }[opts.locale]);
 
   // Magic link de acesso direto. Usamos o hashed_token apontando para o
   // NOSSO callback (?token_hash=), que chama verifyOtp server-side — o
   // action_link bruto do Supabase não funciona aqui porque o fluxo PKCE
   // exige um code_verifier que só existe quando o login começa no browser.
-  let actionLink = `${opts.baseUrl}/login`;
+  let actionLink = `${opts.baseUrl}/login?lang=${opts.locale}`;
   try {
     const { data, error } = await supabase.auth.admin.generateLink({
       type: "magiclink",
@@ -191,13 +194,13 @@ export async function sendAccessEmail(
     });
     const hashedToken = data?.properties?.hashed_token;
     if (!error && hashedToken) {
-      actionLink = `${opts.baseUrl}/api/auth/callback?token_hash=${encodeURIComponent(hashedToken)}&next=/dashboard`;
+      actionLink = `${opts.baseUrl}/api/auth/callback?token_hash=${encodeURIComponent(hashedToken)}&next=${encodeURIComponent(`/dashboard?lang=${opts.locale}`)}`;
     }
   } catch {
     // mantém o fallback /login
   }
 
-  const loginUrl = `${opts.baseUrl}/login`;
+  const loginUrl = `${opts.baseUrl}/login?lang=${opts.locale}`;
   const html = mysticLayout(`
     <div style="font-size:56px;margin-bottom:14px;">🔮</div>
     <h1 style="color:#c9a84c;font-size:28px;margin:0 0 14px;">${copy.title}</h1>
@@ -271,7 +274,7 @@ export async function sendLimpezaEmail(opts: {
   const copy = LIMPEZA_COPY[opts.locale];
   const firstName =
     escapeHtml((opts.nome ?? "").trim().split(/\s+/)[0]) ||
-    (opts.locale === "en" ? "dear soul" : "querida alma");
+    ({ en: "dear soul", es: "querida alma", de: "liebe Seele", it: "anima cara", "pt-BR": "querida alma" }[opts.locale]);
 
   const html = mysticLayout(`
     <div style="font-size:56px;margin-bottom:14px;">🕊️</div>
@@ -332,8 +335,29 @@ export async function sendNumerologiaDadosEmail(opts: {
 // e o lembrete NUNCA afirmam ritual realizado; só a entrega fala disso, e ela
 // é disparada manualmente pelo operador depois de realizar o ritual.
 
+function sendTranslatedRitualEmail(
+  opts: { email: string; pedidoUrl: string; servicoSlug?: string },
+  locale: AppLocale,
+  stage: "confirmed" | "reminder" | "ready",
+) {
+  const t = rituals[locale];
+  const title = t[stage];
+  const product = t.services[opts.servicoSlug as ServiceSlug]?.title;
+  const html = mysticLayout(`
+    <h1>${escapeHtml(title)}</h1>
+    ${product ? `<h2>${escapeHtml(product)}</h2>` : ""}
+    <p>${escapeHtml(stage === "ready" ? t.delivered : t.instructions)}</p>
+    ${goldButton(opts.pedidoUrl, t.open)}
+    <p>${escapeHtml(t.keep)}</p>
+    <p>${escapeHtml(storefront[locale].notice)}</p>
+    ${opts.servicoSlug === "devocao-a-xango" ? `<p>${escapeHtml(t.legal)}</p>` : ""}
+  `);
+  return sendEmail({ to: opts.email, subject: `ATB Tarot — ${title}`, html });
+}
+
 // 1. Confirmação pós-compra — leva ao link único do pedido.
 export async function sendServicoConfirmacaoEmail(opts: {
+  locale?: AppLocale;
   email: string;
   nome?: string | null;
   servicoNome: string;
@@ -341,6 +365,7 @@ export async function sendServicoConfirmacaoEmail(opts: {
   pedidoUrl: string;
   acolhimento?: string | null;
 }): Promise<EmailResult> {
+  if (opts.locale && opts.locale !== "pt-BR") return sendTranslatedRitualEmail(opts, opts.locale, "confirmed");
   const c = copyConfirmacao({
     nome: opts.nome,
     servicoNome: opts.servicoNome,
@@ -376,11 +401,13 @@ export async function sendServicoConfirmacaoEmail(opts: {
 
 // 2. Lembrete de dados pendentes — disparo manual no painel.
 export async function sendServicoLembreteEmail(opts: {
+  locale?: AppLocale;
   email: string;
   nome?: string | null;
   servicoNome: string;
   pedidoUrl: string;
 }): Promise<EmailResult> {
+  if (opts.locale && opts.locale !== "pt-BR") return sendTranslatedRitualEmail(opts, opts.locale, "reminder");
   const c = copyLembrete({ nome: opts.nome, servicoNome: opts.servicoNome });
   const html = mysticLayout(`
     <div style="font-size:56px;margin-bottom:14px;">💛</div>
@@ -395,6 +422,8 @@ export async function sendServicoLembreteEmail(opts: {
 
 // 3. Entrega — só depois de o operador marcar o ritual como realizado.
 export async function sendServicoEntregaEmail(opts: {
+  locale?: AppLocale;
+  servicoSlug?: string;
   email: string;
   nome?: string | null;
   servicoNome: string;
@@ -404,6 +433,7 @@ export async function sendServicoEntregaEmail(opts: {
   /** Se a imagem não foi gerada, o e-mail não promete que ela está lá. */
   temImagem?: boolean;
 }): Promise<EmailResult> {
+  if (opts.locale && opts.locale !== "pt-BR") return sendTranslatedRitualEmail(opts, opts.locale, "ready");
   const c = copyEntrega({
     nome: opts.nome,
     servicoNome: opts.servicoNome,

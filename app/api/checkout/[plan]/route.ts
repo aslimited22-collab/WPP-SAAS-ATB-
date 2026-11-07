@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
-import { isBrazilRequest, normalizeLocale } from "@/lib/locale";
+import { channelLocale, kiwifyCheckoutUrl, isBrazilRequest, normalizeLocale } from "@/lib/locale";
 import {
   PRODUCT_PRICES,
   PRODUCT_TYPE,
@@ -65,24 +65,26 @@ export async function GET(
     const kiwifyUrl = kiwifyUrlFor(plan);
     if (!kiwifyUrl) {
       console.warn("[Checkout] URL Kiwify ausente para o produto:", plan);
-      return NextResponse.redirect(`${baseUrl}/#assinar`, 307);
+      return NextResponse.redirect(`${baseUrl}/?error=checkout#produtos`, 307);
     }
     // O id do pedido vai em external_reference E em s1 (TrackingParameters):
     // a Kiwify ecoa parâmetros de rastreio s1/s2/s3 no payload do webhook.
-    const url = orderId
-      ? `${kiwifyUrl}${kiwifyUrl.includes("?") ? "&" : "?"}external_reference=${orderId}&s1=${orderId}`
-      : kiwifyUrl;
-    return NextResponse.redirect(url, 307);
+    const locale = channelLocale(request.nextUrl.searchParams.get("lang"))
+      ?? channelLocale(request.cookies.get("atb_locale")?.value) ?? normalizeLocale(currencyForRequest(request).locale);
+    return NextResponse.redirect(kiwifyCheckoutUrl(kiwifyUrl, locale, orderId), 307);
   }
 
   // ── Internacional → Stripe ────────────────────────────────────────────────
   const stripe = getStripe();
   if (!stripe) {
     console.error("[Checkout] STRIPE_SECRET_KEY não configurada");
-    return NextResponse.redirect(`${baseUrl}/#assinar?error=stripe`, 307);
+    return NextResponse.redirect(`${baseUrl}/?error=checkout#produtos`, 307);
   }
 
-  const { currency, locale } = currencyForRequest(request);
+  const market = currencyForRequest(request);
+  const currency = market.currency;
+  const locale = channelLocale(request.nextUrl.searchParams.get("lang"))
+    ?? channelLocale(request.cookies.get("atb_locale")?.value) ?? market.locale;
 
   // Defesa em profundidade: o caminho internacional NUNCA cobra em BRL.
   // Se headers contaminados levarem a BRL aqui, volta para a Kiwify.
@@ -145,7 +147,7 @@ export async function GET(
 
     if (!session.url) {
       console.error("[Checkout] Stripe não retornou URL de sessão");
-      return NextResponse.redirect(`${baseUrl}/#assinar?error=session`, 307);
+      return NextResponse.redirect(`${baseUrl}/?error=checkout#produtos`, 307);
     }
 
     return NextResponse.redirect(session.url, 303);
@@ -154,6 +156,6 @@ export async function GET(
       "[Checkout] Falha ao criar sessão Stripe:",
       err instanceof Error ? err.message : ""
     );
-    return NextResponse.redirect(`${baseUrl}/#assinar?error=stripe`, 307);
+    return NextResponse.redirect(`${baseUrl}/?error=checkout#produtos`, 307);
   }
 }

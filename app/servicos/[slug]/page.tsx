@@ -1,3 +1,5 @@
+import { getStoreMarket } from "@/lib/store-market";
+import { rituals } from "@/content/rituals";
 // ─── /servicos/[slug] — landing de cada Trabalho Espiritual ──────────────────
 // Server Component: valida o slug, lê preço + URL de checkout do banco
 // (nunca hardcoded) e delega a renderização i18n ao client component.
@@ -12,33 +14,38 @@ import ServicoLandingClient from "./ServicoLandingClient";
 export const dynamic = "force-dynamic";
 
 interface Props {
+  searchParams: Promise<{ lang?: string }>;
   params: Promise<{ slug: string }>;
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { slug } = await params;
   const content = SERVICOS_CONTENT["pt-BR"][slug as ServiceSlug];
   if (!content) return { title: "Trabalhos Espirituais | ATB" };
+  const { locale } = await getStoreMarket((await searchParams).lang);
+  const product = rituals[locale].services[slug as ServiceSlug];
   return {
-    title: `${content.titulo} | ATB`,
+    title: `${product.title} | ATB`,
     // Metadata segue as mesmas regras de compliance da página.
-    description: content.subtitulo.slice(0, 160),
+    description: product.description,
   };
 }
 
-export default async function ServicoPage({ params }: Props) {
+export default async function ServicoPage({ params, searchParams }: Props) {
   const { slug } = await params;
 
   // Slug precisa existir no conteúdo E no banco (ativo).
   const content = SERVICOS_CONTENT["pt-BR"][slug as ServiceSlug];
   if (!content) notFound();
 
+  const { locale } = await getStoreMarket((await searchParams).lang);
   const supabase = createServiceSupabaseClient();
   const service = await findServiceBySlug(supabase, slug);
   if (!service || !service.ativo) notFound();
 
   return (
     <ServicoLandingClient
+      initialLocale={locale}
       service={{
         slug: service.slug,
         nome: service.nome,

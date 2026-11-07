@@ -9,6 +9,7 @@
 // Após provisionar, envia o e-mail de acesso (Resend, idioma pt-BR) — a
 // promessa "você receberá um e-mail" da página de vendas é cumprida aqui.
 
+import { channelLocale } from "@/lib/locale";
 import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceSupabaseClient } from "@/lib/supabase";
@@ -313,6 +314,7 @@ export async function POST(request: NextRequest) {
 
   // O id do pedido do funil /limpeza pode chegar como external_reference ou
   // ecoado pela Kiwify nos TrackingParameters (s1, setado pelo roteador).
+  const buyerLocale = channelLocale(order.TrackingParameters?.s2 ?? payload.TrackingParameters?.s2) ?? "pt-BR";
   const externalRef: string | null =
     order.external_reference ??
     order.externalReference ??
@@ -358,6 +360,7 @@ export async function POST(request: NextRequest) {
         if (spiritualService) {
           const resultado = await processarCompraServico(supabase, {
             service: spiritualService,
+            locale: buyerLocale,
             kiwifyOrderId: orderId,
             email,
             nome: nome || null,
@@ -567,7 +570,7 @@ export async function POST(request: NextRequest) {
               phone,
               tema: "protecao_espiritual",
               pergunta: "",
-              locale: "pt-BR",
+              locale: buyerLocale,
               status: "paid",
               payment_provider: "kiwify",
               payment_id: orderId,
@@ -627,7 +630,7 @@ export async function POST(request: NextRequest) {
             .insert({
               email,
               name: nome || null,
-              locale: "pt-BR",
+              locale: buyerLocale,
               status: "paid",
               payment_provider: "kiwify",
               kiwify_order_id: orderId,
@@ -672,7 +675,7 @@ export async function POST(request: NextRequest) {
           const dadosEmail = await sendNumerologiaDadosEmail({
             email,
             nome,
-            locale: "pt-BR",
+            locale: buyerLocale,
             dadosUrl: `${baseUrl}/numerologia/dados?pedido=${numOrder.access_token}`,
           });
 
@@ -734,7 +737,7 @@ export async function POST(request: NextRequest) {
         }
 
         const provision = await provisionPlan(supabase, userId, planKey, {
-          locale: "pt-BR",
+          locale: buyerLocale,
         });
         if (!provision.ok) {
           console.error("[Kiwify] provisionPlan falhou:", provision.errors);
@@ -749,7 +752,7 @@ export async function POST(request: NextRequest) {
         const accessEmail = await sendAccessEmail(supabase, {
           email,
           nome,
-          locale: "pt-BR",
+          locale: buyerLocale,
           baseUrl,
         });
 

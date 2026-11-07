@@ -1,3 +1,4 @@
+import { normalizeLocale } from "@/lib/locale";
 // ─── POST /api/admin/pedidos/[id]/lembrete ───────────────────────────────────
 // Disparo MANUAL (pelo painel) do lembrete de dados pendentes — cliente que
 // não preencheu nome completo/intenção no link do pedido.
@@ -37,7 +38,7 @@ export async function POST(
   const { data: order } = await supabase
     .from("service_orders")
     .select(
-      "id, status, cliente_nome, cliente_email, access_token, spiritual_services(nome)"
+      "id, status, locale, cliente_nome, cliente_email, access_token, spiritual_services(nome)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -53,6 +54,7 @@ export async function POST(
   }
 
   const enviado = await sendServicoLembreteEmail({
+    locale: normalizeLocale(order.locale),
     email: order.cliente_email,
     nome: order.cliente_nome,
     servicoNome: servicoNomeDe(order.spiritual_services),

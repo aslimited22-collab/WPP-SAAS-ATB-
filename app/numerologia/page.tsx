@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { isProdutoAVenda } from "@/lib/pricing";
 // ─── /numerologia — página de venda do Mapa Numerológico (R$45) ──────────────
 // PT-hardcoded (produto BR-first; precedente: landing /google-ads). O CTA passa
 // pelo roteador /api/checkout/numerologia: Brasil → Kiwify, intl → Stripe.
@@ -83,6 +85,7 @@ const faq: [string, string][] = [
 ];
 
 export default function NumerologiaPage() {
+  if (!isProdutoAVenda("numerologia")) redirect("/#produtos");
   return (
     <main className="min-h-screen bg-mystic-gradient stars-bg">
       {/* ── HEADER ─────────────────────────────────────────────────────────── */}

@@ -1,3 +1,4 @@
+import { getStoreMarket } from "@/lib/store-market";
 // Página de obrigado pós-compra — usada pelos dois checkouts:
 //   Kiwify (BR): URL de obrigado configurada no produto → sempre pt-BR
 //   Stripe (intl): success_url inclui ?lang=<locale do comprador>
@@ -49,14 +50,6 @@ const COPY: Record<
   },
 };
 
-function normalize(lang: string | undefined): Locale {
-  const lc = (lang ?? "").toLowerCase();
-  if (lc.startsWith("en")) return "en";
-  if (lc.startsWith("es")) return "es";
-  if (lc.startsWith("de")) return "de";
-  if (lc.startsWith("it")) return "it";
-  return "pt-BR";
-}
 
 export default async function ObrigadoPage({
   searchParams,
@@ -69,7 +62,7 @@ export default async function ObrigadoPage({
   }>;
 }) {
   const { lang, plan, cur, sid } = await searchParams;
-  const locale = normalize(lang);
+  const { locale } = await getStoreMarket(lang);
   const t = COPY[locale];
 
   // ── Conversão do Google Ads ────────────────────────────────────────────────

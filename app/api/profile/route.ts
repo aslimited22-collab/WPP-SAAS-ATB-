@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
   const supabase = createServiceSupabaseClient();
   const { data: profile, error } = await supabase
     .from("users")
-    .select("id, email, nome, signo, data_nascimento, whatsapp, created_at")
+    .select("id, email, nome, signo, data_nascimento, whatsapp, created_at, plan")
     .eq("id", user.id)
     .single();
 

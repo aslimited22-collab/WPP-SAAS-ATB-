@@ -101,6 +101,7 @@ export async function POST(
     .update({
       nome_completo_ritual: parsed.data.nome_completo,
       intencao: parsed.data.intencao,
+      ...(parsed.data.locale ? { locale: parsed.data.locale } : {}),
       form_respondido_em: nowIso,
       updated_at: nowIso,
     })
