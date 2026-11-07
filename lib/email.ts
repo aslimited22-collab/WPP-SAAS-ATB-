@@ -40,6 +40,7 @@ export async function sendEmail(opts: {
   to: string;
   subject: string;
   html: string;
+  text?: string;
   /** Cópia oculta (ex.: aviso de entrega pro admin). */
   bcc?: string;
   /** Anexos: content em BASE64 (a API HTTP do Resend aceita nesse formato). */
@@ -52,10 +53,12 @@ export async function sendEmail(opts: {
   }
   if (!opts.to) return { ok: false, reason: "no_recipient" };
 
-  const from = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
+  const configuredFrom = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
+  const from = configuredFrom.replace(/^\s*"?ATB TAROT IA"?\s*(?=<)/i, "ATB Tarot ");
 
   const body = JSON.stringify({
     from, to: opts.to, subject: opts.subject, html: opts.html,
+    ...(opts.text ? { text: opts.text } : {}),
     ...(opts.bcc ? { bcc: opts.bcc } : {}),
     ...(opts.attachments?.length ? { attachments: opts.attachments } : {}),
   });
@@ -208,51 +211,52 @@ const LIMPEZA_COPY: Record<
   AppLocale,
   {
     subject: string;
-    title: string;
-    body: (firstName: string) => string;
+    preview: string;
+    greeting: (firstName: string) => string;
+    body: string;
     cta: string;
     note: string;
   }
 > = {
   "pt-BR": {
-    subject: "🕊️ Sua Limpeza Espiritual está pronta",
-    title: "Sua Limpeza está pronta",
-    body: (n) =>
-      `<strong style="color:#c9a84c;">${n}</strong>, é a ATB.<br>Terminei agora a sua Limpeza Espiritual. Está tudo aqui — toque no botão e leia com calma:`,
-    cta: "✨ Abrir minha Limpeza",
-    note: "Guarde este e-mail — o link é seu acesso permanente à sua limpeza.",
+    subject: "Sua leitura de Limpeza Espiritual está pronta",
+    preview: "O link da sua leitura está neste e-mail.",
+    greeting: (n) => n ? `Olá, ${n}!` : "Olá!",
+    body: "A leitura de Limpeza Espiritual que você pediu à ATB Tarot já está disponível.",
+    cta: "Abrir minha Limpeza",
+    note: "Guarde este e-mail para voltar à sua leitura quando quiser.",
   },
   en: {
-    subject: "🕊️ Your Spiritual Cleansing is ready",
-    title: "Your Cleansing is ready",
-    body: (n) =>
-      `<strong style="color:#c9a84c;">${n}</strong>, it's ATB.<br>I've just finished your Spiritual Cleansing. It's all here — tap the button and read it calmly:`,
-    cta: "✨ Open my Cleansing",
-    note: "Keep this email — the link is your permanent access to your cleansing.",
+    subject: "Your Spiritual Cleansing reading is ready",
+    preview: "The link to your reading is in this email.",
+    greeting: (n) => n ? `Hello, ${n}!` : "Hello!",
+    body: "The Spiritual Cleansing reading you ordered from ATB Tarot is ready.",
+    cta: "Open my Cleansing",
+    note: "Keep this email so you can return to your reading whenever you like.",
   },
   es: {
-    subject: "🕊️ Tu Limpieza Espiritual está lista",
-    title: "Tu Limpieza está lista",
-    body: (n) =>
-      `<strong style="color:#c9a84c;">${n}</strong>, soy ATB.<br>Acabo de terminar tu Limpieza Espiritual. Está todo aquí — toca el botón y léelo con calma:`,
-    cta: "✨ Abrir mi Limpieza",
-    note: "Guarda este correo — el enlace es tu acceso permanente a tu limpieza.",
+    subject: "Tu lectura de Limpieza Espiritual está lista",
+    preview: "El enlace a tu lectura está en este correo.",
+    greeting: (n) => n ? `¡Hola, ${n}!` : "¡Hola!",
+    body: "La lectura de Limpieza Espiritual que pediste a ATB Tarot ya está disponible.",
+    cta: "Abrir mi Limpieza",
+    note: "Guarda este correo para volver a tu lectura cuando quieras.",
   },
   de: {
-    subject: "🕊️ Deine Spirituelle Reinigung ist bereit",
-    title: "Deine Reinigung ist bereit",
-    body: (n) =>
-      `<strong style="color:#c9a84c;">${n}</strong>, hier ist ATB.<br>Ich habe deine Spirituelle Reinigung gerade fertig gemacht. Hier ist alles — tippe auf den Knopf und lies es in Ruhe:`,
-    cta: "✨ Meine Reinigung öffnen",
-    note: "Bewahre diese E-Mail auf — der Link ist dein dauerhafter Zugang zu deiner Reinigung.",
+    subject: "Deine Lesung zur spirituellen Reinigung ist bereit",
+    preview: "Den Link zu deiner Lesung findest du in dieser E-Mail.",
+    greeting: (n) => n ? `Hallo ${n}!` : "Hallo!",
+    body: "Die Lesung zur spirituellen Reinigung, die du bei ATB Tarot bestellt hast, ist bereit.",
+    cta: "Meine Reinigung öffnen",
+    note: "Bewahre diese E-Mail auf, damit du deine Lesung jederzeit wieder öffnen kannst.",
   },
   it: {
-    subject: "🕊️ La tua Pulizia Spirituale è pronta",
-    title: "La tua Pulizia è pronta",
-    body: (n) =>
-      `<strong style="color:#c9a84c;">${n}</strong>, sono ATB.<br>Ho appena finito la tua Pulizia Spirituale. È tutto qui — tocca il pulsante e leggila con calma:`,
-    cta: "✨ Apri la mia Pulizia",
-    note: "Conserva questa e-mail — il link è il tuo accesso permanente alla tua pulizia.",
+    subject: "La tua lettura di Pulizia Spirituale è pronta",
+    preview: "Il link alla tua lettura si trova in questa email.",
+    greeting: (n) => n ? `Ciao ${n}!` : "Ciao!",
+    body: "La lettura di Pulizia Spirituale che hai ordinato da ATB Tarot è pronta.",
+    cta: "Apri la mia Pulizia",
+    note: "Conserva questa email per rileggere la tua lettura quando vuoi.",
   },
 };
 
@@ -263,19 +267,18 @@ export async function sendLimpezaEmail(opts: {
   deliveryLink: string;
 }): Promise<EmailResult> {
   const copy = LIMPEZA_COPY[opts.locale];
-  const firstName =
-    escapeHtml((opts.nome ?? "").trim().split(/\s+/)[0]) ||
-    ({ en: "dear soul", es: "querida alma", de: "liebe Seele", it: "anima cara", "pt-BR": "querida alma" }[opts.locale]);
+  const greeting = copy.greeting((opts.nome ?? "").trim().split(/\s+/)[0]);
+  const text = [greeting, copy.body, `${copy.cta}\n${opts.deliveryLink}`, copy.note, "ATB Tarot"].join("\n\n");
+  const html = `<!DOCTYPE html><html lang="${opts.locale}"><body style="margin:24px;color:#302b32;font:16px/1.55 Arial,sans-serif;">
+    <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${copy.preview}</div>
+    <p>${escapeHtml(greeting)}</p>
+    <p>${copy.body}</p>
+    <p><a href="${escapeHtml(opts.deliveryLink)}" style="color:#58396e;text-decoration:underline;">${copy.cta}</a></p>
+    <p>${copy.note}</p>
+    <p>ATB Tarot</p>
+  </body></html>`;
 
-  const html = mysticLayout(`
-    <div style="font-size:56px;margin-bottom:14px;">🕊️</div>
-    <h1 style="color:#c9a84c;font-size:28px;margin:0 0 14px;">${copy.title}</h1>
-    <p style="font-size:17px;line-height:1.65;margin:0 0 24px;">${copy.body(firstName)}</p>
-    ${goldButton(opts.deliveryLink, copy.cta)}
-    <p style="color:#9a8f78;font-size:13px;line-height:1.6;margin:26px 0 0;">${copy.note}</p>
-  `);
-
-  return sendEmail({ to: opts.email, subject: copy.subject, html });
+  return sendEmail({ to: opts.email, subject: copy.subject, html, text });
 }
 
 // ─── E-mail pós-compra da Numerologia (pede nome + nascimento) ───────────────
