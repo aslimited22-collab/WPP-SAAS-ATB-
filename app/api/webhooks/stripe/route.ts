@@ -212,10 +212,6 @@ async function handlePaidCheckout(opts: {
   baseUrl: string;
 }): Promise<NextResponse> {
   const { supabase, stripe, session, eventId, ipAddress, baseUrl } = opts;
-  if (session.metadata?.plan === "ritual") {
-    await deliverStripeRitual(supabase, stripe, session, baseUrl);
-    return NextResponse.json({ ok: true, plan: "ritual" });
-  }
 
   const email = (
     session.customer_details?.email ??
@@ -764,6 +760,22 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceSupabaseClient();
   const baseUrl = appBaseUrl(request);
+
+  // An interrupted ritual must resume from the stored order and email acknowledgement.
+  // Its payment-intent constraint and Resend key also cover concurrent Stripe events.
+  if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
+    const session = event.data.object;
+    if (session.metadata?.plan === "ritual") {
+      if (session.payment_status !== "paid") return NextResponse.json({ received: true, pending: true });
+      try {
+        await deliverStripeRitual(supabase, stripe, session, baseUrl);
+        return NextResponse.json({ ok: true, plan: "ritual" });
+      } catch (error) {
+        console.error("[Stripe ritual]", error instanceof Error ? error.message : "Delivery pending");
+        return NextResponse.json({ error: "Ritual delivery pending" }, { status: 503 });
+      }
+    }
+  }
 
   // ── 5. Idempotência universal (marcador único ANTES de processar) ─────────
   const claim = await claimEvent(supabase, event.id, ipAddress);
